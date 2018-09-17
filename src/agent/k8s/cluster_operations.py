@@ -12,7 +12,8 @@ import shutil
 import time
 import yaml
 
-#from ..host_base import HostBase
+from uuid import uuid4
+from ..host_base import HostBase
 from common import log_handler, LOG_LEVEL, db, utils
 from jinja2 import Template, Environment, FileSystemLoader
 from kubernetes import client, config
@@ -90,30 +91,36 @@ class K8sClusterOperation():
     #transfer the config file to the k8s serveice.
     #this function can be reused by `setup node`
     def _render_config_file(self, file_name, cluster_name,
-                            cluster_ports, nfsServer_ip):
+                            cluster_params, nfsServer_ip="", extend=False):
         # get template file's ports
+        ordererId, peerId, orgId = "", "", ""
         externalPort, chaincodePort, nodePort = "", "", ""
-        ordererId, peerId, orgId = "","", ""
+
         if ("pvc" not in file_name and "namespace" not in file_name and
            "cli" not in file_name):
             if "peer" in file_name:
-                externalPort = cluster_ports[file_name].get("externalPort")
-                chaincodePort = cluster_ports[file_name].get("chaincodePort")
-                nodePort = cluster_ports[file_name].get("nodePort")
+                externalPort = cluster_params[file_name].get("externalPort")
+                chaincodePort = cluster_params[file_name].get("chaincodePort")
+                nodePort = cluster_params[file_name].get("nodePort")
                 if "x" in file_name and "y" in file_name:
-                    peerId = cluster_ports[file_name].get ("peerId")
-                    orgId = cluster_ports[file_name].get ("organizationId")
+                    peerId = cluster_params[file_name].get("peerId")
+                    orgId = cluster_params[file_name].get("organizationId")
 
             elif "x" in file_name and "orderer" in file_name:
-                orgId = cluster_ports[file_name].get ("organizationId")
-                ordererId = cluster_ports[file_name].get ("ordererId")
-                nodePort = cluster_ports[file_name].get("nodePort")
+                orgId = cluster_params[file_name].get("organizationId")
+                ordererId = cluster_params[file_name].get("ordererId")
+                nodePort = cluster_params[file_name].get("nodePort")
+            elif "x" in file_name and "pvc" in file_name:
+                orgId = cluster_params[file_name].get("organizationId")
             else:
-                nodePort = cluster_ports[file_name]
+                nodePort = cluster_params[file_name]
 
+        current_path = os.path.dirname (__file__)
+        if not extend:
+            templates_path = os.path.join(current_path, "templates")
+        else:
+            templates_path = os.path.join(current_path, "templates/extend")
 
-        current_path = os.path.dirname(__file__)
-        templates_path = os.path.join(current_path, "templates")
         env = Environment(
             loader=FileSystemLoader(templates_path),
             trim_blocks=True,
@@ -132,6 +139,7 @@ class K8sClusterOperation():
                                  organizationId=orgId,
                                  ordererId=ordererId)
         return output
+
     #exec the remote command
     #this fuction can be used to join channel?
     def _pod_exec_command(self, pod_name, namespace, command):
@@ -151,7 +159,7 @@ class K8sClusterOperation():
             logger.error(e)
 
     def _filter_cli_pod_name(self, namespace):
-        ret = self.corev1client.list_pod_for_all_namespaces(watch=False)
+        ret = self.corev1client.list_namespaced_pod(namespace, watch=False)
         pod_list = []
         for i in ret.items:
             if (i.metadata.namespace == namespace and
@@ -160,59 +168,183 @@ class K8sClusterOperation():
         return pod_list
 
     def _is_cluster_pods_running(self, namespace):
-        ret = self.corev1client.list_pod_for_all_namespaces(watch=False)
+        ret = self.corev1client.list_namespaced_pod(namespace, watch=False)
         for i in ret.items:
-            if i.metadata.namespace == namespace:
-                if not i.status.phase == "Running":
-                    return False
+            if not i.status.phase == "Running":
+                return False
+
         return True
 
     def _get_cluster_pods(self, namespace):
-        ret = self.corev1client.list_pod_for_all_namespaces(watch=False)
+        ret = self.corev1client.list_namespaced_pod(namespace, watch=False)
         pod_list = {}
         for i in ret.items:
-            if i.metadata.namespace == namespace:
-                pod_list[i.metadata.name] = i.metadata.uid
+            #if i.metadata.namespace == namespace:
+            pod_list[i.metadata.name] = i.metadata.uid
 
         return pod_list
 
-    def _get_node_ip(self, node_name):
-        ret = self.corev1client.list_node()
-        ip = ""
-        for i in ret.items:
-            for addr in i.status.addresses:
+    def _pods_match_nodes(self, kube_pods, kube_nodes):
+        nodes = []
+        for i in kube_nodes.items:
+            node = {}
+            # print ("Node status: {}".format (i.status))
+            node['addresses'] = i.status.addresses
+            node['node_name'] = i.metadata.name
+            # print("node_address {}".format(node))
+            nodes.append (node)
+
+        print("nodes : {}".format (nodes))
+
+        pods = []
+        for i in kube_pods.items:
+            pod = {}
+            # print("podname: {}, nodename: {}".format(i.metadata.name, i.spec.node_name))
+            pod['pod_name'] = i.metadata.name
+            pod['node_name'] = i.spec.node_name
+
+            if i.metadata.labels is None:
+                continue
+
+            pod['labels'] = i.metadata.labels
+
+            # cli、kafka和zookper没有需要暴露的端口
+            if (pod['labels'].get('org') == 'kafkacluster') \
+                    or (pod['labels'].get('app') == 'cli'):
+                continue
+
+            pods.append (pod)
+
+        pods_result = []
+        for n in nodes:
+            # 提取出物理IP
+            ip = None
+            for addr in n.get('addresses'):
                 if addr.type == "ExternalIP":
                     ip = addr.address
-        return ip
-
-    def _get_node_ip_of_service(self, service_name):
-        ret = self.corev1client.list_pod_for_all_namespaces(watch=False)
-
-        # The fabric-explorer service_name is different with it's pod
-        if "fabric-explorer" in service_name:
-            service_name = "fabric-explorer"
-
-        for i in ret.items:
-            if i.metadata.name.startswith(service_name):
-                return self._get_node_ip(i.spec.node_name)
-
-    def _get_service_external_port(self, service_name):
-        ret = self.corev1client.list_service_for_all_namespaces(watch=False)
-        for i in ret.items:
-            if i.metadata.name == service_name:
-                external_port = ""
-                if i.metadata.name.startswith("peer"):
-                    for port in i.spec.ports:
-                        if port.name == "externale-listen-endpoint":
-                            external_port = port.node_port
+                elif addr.type == "InternalIP":
+                    ip = addr.address
                 else:
-                    for port in i.spec.ports:
-                        # these services only have one port
-                        external_port = port.node_port
+                    continue
 
-        return external_port
+            if ip is None:
+                continue
 
-    #One important function
+            pods_cache = []
+            for p in pods:
+                if n.get('node_name') == p.get('node_name'):
+                    p['address'] = ip
+                    pods_result.append(p)
+                else:
+                    pods_cache.append(p)
+            pods = pods_cache
+
+        print ("pods : {}".format (pods_result))
+        return pods_result
+
+    def  _gen_service_url(self, kube_services, kube_pods):
+        services = []
+        for i in kube_services.items:
+            service = {}
+            service['service_name'] = i.metadata.name
+
+            if i.spec.ports is None \
+                    or i.spec.selector is None:
+                continue
+
+            service['ports'] = i.spec.ports
+            service['selector'] = i.spec.selector
+
+            if (service['selector'].get('org') == 'kafkacluster') \
+                    or (service['selector'].get('app', None) is None):
+                continue
+
+            services.append (service)
+
+        # 在我们的情况里,每一个pod都对应一个service
+        services_cache = []
+        for p in kube_pods:
+            if len(services) is 0:
+                break
+
+            for s in services:
+                if (p['labels'].get('org') == s['selector'].get('org') \
+                    and p['labels'].get('name') == s['selector'].get('name')) \
+                        or (p['labels'].get('app') == s['selector'].get('app') == 'explorer'):
+                    s['address'] = p['address']
+                    services_cache.append(s)
+                    services.remove(s)
+                    break
+
+        services = services_cache
+        logger.debug("services : {}".format (services))
+
+        results = {}
+
+        def _peer(s):
+            for port in s['ports']:
+                # transfer port name which can be recognized.
+                if port.name == "externale-listen-endpoint":
+                    external_port = port.node_port
+                    name = r_name + "_grpc"
+                    value = r_template.format(external_port)
+
+                elif port.name == "listen":
+                    event_port = port.node_port
+                    name = r_name + "_event"
+                    value = r_template.format(event_port)
+
+                else:
+                    continue
+
+                results[name] = value
+            return
+
+        def _ca(s):
+            name = r_name + "_ecap"
+            for port in s['ports']:
+                _port = port.node_port
+                value = r_template.format(_port)
+                results[name] = value
+            return
+
+        def _orderer(s):
+            name = "orderer"
+            for port in s['ports']:
+                _port = port.node_port
+                value = r_template.format(_port)
+                results[name] = value
+            return
+
+        def _explore(s):
+            name = "dashboard"
+            for port in s['ports']:
+                _port = port.node_port
+                value = r_template.format(_port)
+                results[name] = value
+
+        switch = {
+            "peer": _peer,
+            "orderer": _orderer,
+            "ca": _ca,
+            "explorer": _explore
+        }
+
+        for s in services:
+            r_template = s['address'] + ":" + "{}"
+            r_name = s['service_name'].replace("-", "_")
+            key = s['selector'].get('role')
+
+            if key is None:
+                key = s['selector'].get('app')
+            try:
+                switch[key](s)
+            except KeyError as e:
+                pass
+
+        logger.debug("service external port: {}".format (results))
+        return results
+
     def _create_deployment(self, namespace, data, **kwargs):
         try:
             resp = self.extendv1client.create_namespaced_deployment(namespace,
@@ -223,6 +355,7 @@ class K8sClusterOperation():
             logger.error(e)
         except Exception as e:
             logger.error(e)
+
     #create a service in k8s
     def _create_service(self, namespace, data, **kwargs):
         try:
@@ -319,7 +452,7 @@ class K8sClusterOperation():
         except Exception as e:
             logger.error(e)
 
-    def _deploy_k8s_resource(self, yaml_data):
+    def _deploy_k8s_resource(self, yaml_data, save=None):
         for data in yaml_data:
             if data is None:
                 continue
@@ -331,6 +464,8 @@ class K8sClusterOperation():
                                                                   name,
                                                                   kind)
             logger.info(logs)
+            if save != None:
+                save(self._fomart_yaml_data(data))
 
             if kind in self.support_namespace:
                 self.create_func_dict.get(kind)(namespace, data)
@@ -360,7 +495,7 @@ class K8sClusterOperation():
             time.sleep(3)
 
     def _setup_cluster(self, cluster_name):
-        pod_commands_1 = ["peer channel create -c businesschannel -o \
+        pod_commands_1 = ["peer channel create -c mychannel -o \
                           orderer0:7050 \
                           -f resources/channel-artifacts/channel.tx",
                           "cp ./businesschannel.block \
@@ -388,34 +523,42 @@ class K8sClusterOperation():
 
         pod_list = self._filter_cli_pod_name(cluster_name)
         if len(pod_list) == 2:
-            for cmd in pod_commands_1:
-                self._pod_exec_command(pod_list[0], cluster_name, cmd)
-                time.sleep(3)
+            for pod in pod_list:
+                if "org1" in pod:
+                    for cmd in pod_commands_1:
+                        time.sleep(10)
+                        self._pod_exec_command(pod, cluster_name, cmd)
 
-            for cmd in pod_commands_2:
-                self._pod_exec_command(pod_list[1], cluster_name, cmd)
-                time.sleep(3)
+                elif "org2" in pod:
+                    for cmd in pod_commands_2:
+                        time.sleep(10)
+                        self._pod_exec_command(pod, cluster_name, cmd)
+                else:
+                    logger.info("Unknown cli pod: {}  was found".format(pod))
         else:
             e = ("Cannot not find Kubernetes cli pods.")
             logger.error("Kubernetes cluster creation error msg: {}".format(e))
             raise Exception(e)
 
     def get_services_urls(self, cluster_name):
-        ret = self.corev1client.list_service_for_all_namespaces(watch=False)
-        service_url = {}
-        value = ""
-        for i in ret.items:
-            if i.metadata.namespace == cluster_name:
-                service_name = i.metadata.name
-                value = self._get_node_ip_of_service(service_name) + ":" + \
-                    str(self._get_service_external_port(service_name))
-                service_url[service_name] = value
+        nodes = self.corev1client.list_node ()
+        if nodes is None:
+            return None
 
-                # Use fabric-explorer as dashboard
-                if "fabric-explorer" in service_name:
-                    service_url["dashboard"] = value
+        pods = self.corev1client.list_namespaced_pod(cluster_name)
+        if pods is None:
+            return None
 
-        return service_url
+        # NodeName is a request to schedule this pod
+        # onto a specific node. If it is non-empty, the scheduler
+        #  simply schedules this pod onto that node,
+        # assuming that it fits resource requirements.
+        pods = self._pods_match_nodes(pods, nodes)
+        services = self.corev1client.list_namespaced_service(cluster_name)
+        if services is None:
+            return None
+
+        return self._gen_service_url(services, pods)
 
     def _get_cluster_ports(self, ports_index, external_port_start):
         logger.debug("Current exsiting cluster ports= {}".format(ports_index))
@@ -447,6 +590,9 @@ class K8sClusterOperation():
                         current_port = current_port + 3
                         cluster_ports[file] = peers_ports
                     else:
+                        if "x" in file and "orderer" in file:
+                            continue
+
                         cluster_ports[file] = str(current_port)
                         current_port = current_port + 1
         logger.debug("return generated cluster ports= {}"
@@ -454,80 +600,119 @@ class K8sClusterOperation():
         return cluster_ports
 
 
-#nfserver_ip is not neccessary beacause of the pvc had been created.
-    def _deploy_node_peer(self, cluster_name, cluster_ports):
-        file_data = self._render_config_file("peerx.orgy.tpl", cluster_name, cluster_ports, "");
-        #print(file_data)
+    # nfserver_ip is not neccessary beacause of the pvc had been created.
+    def _deploy_node_peer(self, cluster_name, node_params, save=None):
+        file_data = self._render_config_file("peerx.orgy.tpl",
+                                             cluster_name,
+                                             node_params,
+                                             extend=True);
+
+        yaml_data = yaml.load_all(file_data);
+        self._deploy_k8s_resource(yaml_data, save);
+
+        return
+
+    # add a orderer
+    def _deploy_node_orderer(self, cluster_name, node_params, save=None):
+        file_data = self._render_config_file("ordererx.ordererorg-kafka.tpl",
+                                              cluster_name,
+                                              node_params,
+                                              extend=True);
+
+        yaml_data = yaml.load_all(file_data);
+        self._deploy_k8s_resource(yaml_data, save);
+
+        return
+
+    # add a organization msp file to pv
+    def deploy_org_pvc(self, cluster_name, nfsServer_ip, params, save=None):
+
+        pv_params={
+            "orgx-pvc.tpl":{
+                "organizationId": params.get ('orgId'),
+                "nfsServer": nfsServer_ip
+            }
+        }
+
+        file_data = self._render_config_file("orgx-pvc.tpl",
+                                             cluster_name, pv_params,
+                                             nfsServer_ip,
+                                             extend=True);
+
         yaml_data = yaml.load_all(file_data)
-        self._deploy_k8s_resource (yaml_data)
+        self._deploy_k8s_resource(yaml_data, save)
 
-        return
+        return self._get_cluster_pods(cluster_name)
 
-    #add a orderer
-    def _deploy_node_orderer(self, cluster_name, cluster_ports):
-        file_data = self._render_config_file ("ordererx.ordererorg-kafka.tpl", cluster_name, cluster_ports, "");
-        # print(file_data)
-        yaml_data = yaml.load_all (file_data)
-        self._deploy_k8s_resource (yaml_data)
-
-        return
-
-    def deploy_node(self, cluster_name, ports_index, external_port_start,
-                    nodeId, orgId, node_type):
+    def deploy_node(self, cluster_name, ports_index,
+                    external_port_start, params,
+                    node_type, save=None):
         """
             add a node to one cluster that has been exists.
-            node_type: create a peer or orderer node;
-            cluster_name: the cluster name, we can get paraments from db by the  cluster_name.
-            nodeId: one peer id or orderer id
-            ports_index: the ports had been used.
-            external_port_start: the start port in the cluster that named cluster_name
-            orgId: the organization that new node belongs to
+            create a peer or orderer node;
+
+            :param str cluster_name: the cluster name, we can get paraments from db by the  cluster_name.
+            :param json ports_index: the ports had been used.
+            :param int external_port_start: the start port in the cluster that named cluster_name
+            :param json params:
+                    nodeId: one peer id or orderer id
+                    orgId: the organization that new node belongs to
+            :param str node_type: peer or orderer
         """
         #为新增加的节点产生端口
         if ports_index:
             # 取出当前设置的最大端口
-            current_port = int(max (ports_index)) + 5
+            current_port = int(max(ports_index)) + 5
         else:
             current_port = external_port_start
 
 
         if node_type==NODETYPE_PEER:
-            cluster_ports = {
+            node_params = {
                 "peerx.orgy.tpl" : {
                     "externalPort": str(current_port),
                     "chaincodePort": str(current_port + 1),
                     "nodePort": str(current_port + 2),
-                    "peerId": nodeId,
-                    "organizationId": orgId
+                    "peerId": params.get('nodeId'),
+                    "organizationId": params.get('orgId')
                 }
             };
-            self._deploy_node_peer(cluster_name,  cluster_ports);
+
+            self._deploy_node_peer(cluster_name,  node_params, save);
         elif node_type == NODETYPE_ORDERER:
-            cluster_ports = {
+            node_params = {
                 "ordererx.ordererorg-kafka.tpl":{
-                    "nodePort": str (current_port + 2),
-                    "ordererId": nodeId,
-                    "organizationId": orgId
+                    "nodePort": str(current_port + 2),
+                    "ordererId": params.get('nodeId'),
+                    "organizationId": params.get('orgId')
                 }
-            }
-            self._deploy_node_orderer( cluster_name,cluster_ports)
+            };
+
+            self._deploy_node_orderer(cluster_name, node_params, save);
+
+
 
         return self._get_cluster_pods(cluster_name)
 
 
     def _deploy_cluster_resource(self, cluster_name,
-                                 cluster_ports, nfsServer_ip, consensus):
+                                 cluster_ports, nfsServer_ip,
+                                 consensus, save=None):
         # create namespace in advance
         file_data = self._render_config_file("namespace.tpl", cluster_name,
                                              cluster_ports, nfsServer_ip)
         yaml_data = yaml.load_all(file_data)
-        self._deploy_k8s_resource(yaml_data)
+        self._deploy_k8s_resource(yaml_data, save)
 
         time.sleep(3)
 
         current_path = os.path.dirname(__file__)
         templates_path = os.path.join(current_path, "templates")
         for (dir_path, dir_name, file_list) in os.walk(templates_path):
+            # donnot search this directory.
+            if 'extend' in dir_name:
+                dir_name.remove ('extend')
+
             for file in file_list:
                 # pvc should be created at first
                 if "pvc" in file:
@@ -535,21 +720,19 @@ class K8sClusterOperation():
                                                          cluster_ports,
                                                          nfsServer_ip)
                     yaml_data = yaml.load_all(file_data)
-                    self._deploy_k8s_resource(yaml_data)
+                    self._deploy_k8s_resource(yaml_data, save)
 
             time.sleep(3)
+
 
             for file in file_list:
                 # Then peers
                 if "peer" in file:
-                    if "x" in file and "y" in file:
-                        continue
-
                     file_data = self._render_config_file(file, cluster_name,
                                                          cluster_ports,
                                                          nfsServer_ip)
                     yaml_data = yaml.load_all(file_data)
-                    self._deploy_k8s_resource(yaml_data)
+                    self._deploy_k8s_resource(yaml_data, save)
 
             time.sleep(3)
 
@@ -564,7 +747,7 @@ class K8sClusterOperation():
                                                      cluster_ports,
                                                      nfsServer_ip)
             yaml_data = yaml.load_all(file_data)
-            self._deploy_k8s_resource(yaml_data)
+            self._deploy_k8s_resource(yaml_data, save)
 
             time.sleep(3)
 
@@ -575,19 +758,25 @@ class K8sClusterOperation():
                                                          cluster_ports,
                                                          nfsServer_ip)
                     yaml_data = yaml.load_all(file_data)
-                    self._deploy_k8s_resource(yaml_data)
+                    self._deploy_k8s_resource(yaml_data, save)
 
             time.sleep(3)
 
+            return
+
     def deploy_cluster(self, cluster_name, ports_index,
-                       external_port_start, nfsServer_ip, consensus):
+                       external_port_start, nfsServer_ip,
+                       consensus, save=None):
         self._upload_config_file(cluster_name, consensus)
         time.sleep(1)
 
         cluster_ports = self._get_cluster_ports(ports_index, external_port_start)
 
-        self._deploy_cluster_resource(cluster_name, cluster_ports,
-                                      nfsServer_ip, consensus)
+        self._deploy_cluster_resource(cluster_name,
+                                      cluster_ports,
+                                      nfsServer_ip,
+                                      consensus,
+                                      save)
 
         check_times = 0
         while check_times < 10:
@@ -612,7 +801,7 @@ class K8sClusterOperation():
                                              cluster_name, cluster_ports,
                                              nfsServer_ip)
         yaml_data = yaml.load_all(file_data)
-        self._deploy_k8s_resource(yaml_data)
+        self._deploy_k8s_resource(yaml_data, save)
 
         time.sleep(3)
 
@@ -634,6 +823,9 @@ class K8sClusterOperation():
         current_path = os.path.dirname(__file__)
         templates_path = os.path.join(current_path, "templates")
         for (dir_path, dir_name, file_list) in os.walk(templates_path):
+            if 'extend' in dir_name:
+                dir_name.remove ('extend')
+
             for file in file_list:
                 if "-ca" in file or "-cli" in file:
                     file_data = self._render_config_file(file, cluster_name,
@@ -653,9 +845,6 @@ class K8sClusterOperation():
 
             for file in file_list:
                 if "peer" in file:
-                    if "x" in file and "y" in file:
-                        continue
-
                     file_data = self._render_config_file(file,
                                                          cluster_name,
                                                          cluster_ports,
@@ -723,6 +912,26 @@ class K8sClusterOperation():
         time.sleep(2)
         return self._get_cluster_pods(cluster_name)
 
-# if __name__ == '__main__':
-#     clusterOperator = K8sClusterOperation(kube_config={})
-#     clusterOperator.deploy_node("first");
+    def _fomart_yaml_data(self, data):
+        kind_dict = ['Service', 'Deployment', 'PersistentVolumeClaim',
+                     'PersistentVolume', 'Namespace']
+
+        #for data in yaml_data_set:
+        if data is None:
+            return None
+        kind = data.get('kind', None)
+        name = data.get('metadata').get('name', None)
+
+        if kind in kind_dict:
+            yaml_data = {
+                'id': uuid4().hex,
+                'kind': kind,
+                'name': name,
+                'data': data
+            }
+        else:
+            logger.warning("this kind {} will not be saved "
+                           "to db: {}".format(kind, data))
+            return None
+
+        return yaml_data

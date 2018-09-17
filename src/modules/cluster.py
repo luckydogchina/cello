@@ -326,9 +326,8 @@ class ClusterHandler(object):
             env_mapped_ports = dict(((k + '_port').upper(), str(v))
                                     for (k, v) in mapped_ports.items())
         else:
-            external_ports = [cluster.external_port_start for cluster in clusters_exists]
-
             # the start port is 31000
+            external_ports = [cluster.external_port_start for cluster in clusters_exists]
             external_port_start = EXTERNAL_SUB_MIX
             for external_port in external_ports:
                 if external_port_start > EXTERNAL_SUB_MAX:
@@ -338,7 +337,7 @@ class ClusterHandler(object):
                 if external_port_start != external_port:
                     break
                 else:
-                    external_port += 100
+                    external_port_start += 100
 
         network_type = config['network_type']
 
@@ -375,25 +374,25 @@ class ClusterHandler(object):
         return cid
 
 
-    # 添加一个节点到已存在的cluster中
+    # 添加一个节点或pv到已存在的cluster中
     def _add_element(self, cluster, cid, worker, element, user_id):
         containers = self.cluster_agents[worker.type].add(cid, element, user_id)
 
         # 更新cluster containers 和 service url 的信息
-        if  containers is None :
+        if containers is None :
             logger.warning ("failed to add element to cluster={}"
-                            .format (cluster.name))
+                            .format(cluster.name))
             return None
 
-            # creation done, update the container table in db
-        for k, v in containers.items ():
-            container = Container (id=v, name=k, cluster=cluster)
-            container.save ()
+        # creation done, update the container table in db
+        for k, v in containers.items():
+            container = Container(id=v, name=k, cluster=cluster)
+            container.save()
 
         # service urls can only be calculated after service is created
         if worker.type == WORKER_TYPE_K8S:
             service_urls = self.cluster_agents[worker.type] \
-                .get_services_urls (cid)
+                .get_services_urls(cid)
         else:
             return None
 

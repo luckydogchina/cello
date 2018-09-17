@@ -106,5 +106,5 @@ def load_user(id):
 socketio.on_namespace(CustomSockets('/socket.io'))
 
 if __name__ == '__main__':
-    socketio.run(app, port=8080, host="0.0.0.0",
+    socketio.run(app, port=8081, host="0.0.0.0",
                  debug=os.environ.get('DEBUG', app.config.get("DEBUG", True)))

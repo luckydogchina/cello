@@ -38,7 +38,6 @@ class Host(Document):
     vcparam = DictField(default={})
     k8s_param = DictField(default={})
 
-
 class Cluster(Document):
     id = StringField(default="", primary_key=True)
     name = StringField(default="")
@@ -62,6 +61,13 @@ class Cluster(Document):
     consensus_plugin = StringField(default="")
     external_port_start = IntField(default=0)
 
+# this object is set to save the k8s deployment data
+class Deployment(Document):
+    id = StringField(default="", primary_key=True)
+    kind = StringField(default="")
+    name = StringField(default="")
+    data = DictField(default={})
+    cluster = ReferenceField(Cluster, reverse_delete_rule=CASCADE)
 
 
 class Container(Document):

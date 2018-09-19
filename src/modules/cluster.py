@@ -368,21 +368,18 @@ class ClusterHandler(object):
                                                       orderer_ports,
                                                       explorer_ports))
         t.start()
-
-        #TODO: start the part in no debug
-        t.join()
         return cid
 
 
-    # 添加一个节点或pv到已存在的cluster中
+    # add one element to one existence cluster
     def _add_element(self, cluster, cid, worker, element, user_id):
         containers = self.cluster_agents[worker.type].add(cid, element, user_id)
 
-        # 更新cluster containers 和 service url 的信息
+        # update cluster containers and service urls info
         if containers is None :
             logger.warning ("failed to add element to cluster={}"
                             .format(cluster.name))
-            return None
+            return False
 
         # creation done, update the container table in db
         for k, v in containers.items():
@@ -394,7 +391,7 @@ class ClusterHandler(object):
             service_urls = self.cluster_agents[worker.type] \
                 .get_services_urls(cid)
         else:
-            return None
+            return False
 
         # update the service port table in db
         for k, v in service_urls.items():
@@ -406,65 +403,44 @@ class ClusterHandler(object):
                                             port=int(v.split(":")[1]),
                                             cluster=cluster)
                 service_port.save()
-
-        # update api_url, container, user_id and status
-        self.db_update_one(
-            {"id": cid},
-            {
-                "user_id": user_id,
-                'api_url': service_urls.get('rest', ""),
-                'service_url': service_urls,
-                'status': NETWORK_STATUS_RUNNING
-            }
-        )
-
-        # def check_health_work(cid):
-        #     time.sleep (60)
-        #     self.refresh_health (cid)
-        #
-        # t = Thread (target=check_health_work, args=(cid,))
-        # t.start ()
-
-        return None
+        return True
 
 
     def add(self, cluster_id, host_id, element, user_id=""):
+        """ add one element to one existence cluster
+            :param cluster_id: the cluster id must be created
+            :param host_id: which the cluster belonged to
+            :param element: the element to be added
+            :param user_id: who to do
+        """
 
         logger.info ("Add node to cluster={}, host_id={}, org_id={}, element={}"
                      "user_id={}".format (cluster_id, host_id, cluster_id,
                                           element, user_id))
-
-        #检查host_id 和 cluster_id
-        worker = self.host_handler.get_active_host_by_id (host_id)
+        #check host_id and cluster_id
+        worker = self.host_handler.get_active_host_by_id(host_id)
         if not worker:
             logger.error ("Cannot find available host to create new network")
-            return None
+            return False
 
         cluster = ClusterModel.objects.get(id=cluster_id)
         if cluster is None:
             logger.error ("the cluster id: {} is not exist".format(cluster_id))
-            return None
+            return False
 
         if cluster.host.id!= host_id:
             logger.error ("the cluster id: {} is not belong to {}".format(cluster_id, host_id))
-            return None
+            return False
 
-        # if cluster.status != NETWORK_STATUS_RUNNING:
-        #     logger.error ("the cluster id: {} is not runnig to {}".format(cluster_id, host_id))
-        #     return None
+        if cluster.status != NETWORK_STATUS_RUNNING:
+            logger.error ("the cluster id: {} is not runnig to {}".format(cluster_id, host_id))
+            return False
 
-        #TODO: 准备端口 k8s这一步不需要在这里做，所以先省略
+        #TODO: prepare ports, but k8s do not need to do here.
         if worker.type == WORKER_TYPE_K8S:
-            logger.debug("tht work type is k8s")
-            # start cluster creation asynchronously for better user experience.
-            t = Thread (target=self._add_element, args=(cluster, cluster_id, worker,
-                                                        element, user_id))
-            t.start()
-            t.join()
+            return self._add_element(cluster, cluster_id, worker, element, user_id)
         else:
-            return None
-
-        return
+            return False
 
 
     def delete(self, id, record=False, forced=False):
@@ -1020,6 +996,7 @@ class ClusterHandler(object):
                 logger.debug("check {}:{} result {}".format(ip, port, result))
                 if result != 0:
                     health_ok = False
+
             if not health_ok:
                 self.db_update_one({"id": cluster_id},
                                    {"health": "FAIL"})

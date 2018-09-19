@@ -85,9 +85,6 @@ class ClusterOnKubernetes(ClusterBase):
                                                 consensus,
                                                 _save)
 
-            # save the yaml_set to cluster db
-            # self._update_deployment(yaml_set, cluster)
-
         except Exception as e:
             logger.error("Failed to create Kubernetes Cluster: {}".format(e))
             return None
@@ -100,10 +97,12 @@ class ClusterOnKubernetes(ClusterBase):
 
             operation = K8sClusterOperation(kube_config)
             cluster_name = self.trim_cluster_name(cluster_name)
-            operation.delete_cluster(cluster_name,
-                                     ports_index,
-                                     nfsServer_ip,
-                                     consensus)
+            deployments = DeploymentModel.objects (cluster=cluster)
+            operation.delete_cluster(cluster_name, deployments)
+
+            # only delete the deployments during deleting cluster
+            for deployment in deployments:
+                deployment.delete ()
 
             # delete ports for clusters
             cluster_ports = ServicePort.objects(cluster=cluster)
@@ -146,15 +145,16 @@ class ClusterOnKubernetes(ClusterBase):
 
             operation = K8sClusterOperation(kube_config)
             cluster_name = self.trim_cluster_name(cluster_name)
-            containers = operation.start_cluster(cluster_name, ports_index,
-                                                 nfsServer_ip, consensus)
+            deployments = DeploymentModel.objects(cluster=cluster)
+
+            containers = operation.start_cluster(cluster_name, deployments)
 
             if not containers:
                 logger.warning("failed to start cluster={}, stop it again."
                                .format(cluster_name))
                 operation.stop_cluster(cluster_name, ports_index,
                                        nfsServer_ip, consensus)
-                return None
+                return False
 
             service_urls = self.get_services_urls(name)
             # Update the service port table in db
@@ -170,9 +170,8 @@ class ClusterOnKubernetes(ClusterBase):
 
         except Exception as e:
             logger.error("Failed to start Kubernetes Cluster: {}".format(e))
-            return None
-        #return containers
-        return None
+            return False
+        return True
 
     def stop(self, name, worker_api, mapped_ports, log_type, log_level,
              log_server, config):
@@ -181,11 +180,9 @@ class ClusterOnKubernetes(ClusterBase):
                 nfsServer_ip, consensus = self._get_cluster_info(name, config)
 
             operation = K8sClusterOperation(kube_config)
-            cluster_name = self.trim_cluster_name(cluster_name)
-            operation.stop_cluster(cluster_name,
-                                   ports_index,
-                                   nfsServer_ip,
-                                   consensus)
+            #cluster_name = self.trim_cluster_name(cluster_name)
+            deployments = DeploymentModel.objects(cluster=cluster)
+            operation.stop_cluster(deployments)
 
             cluster_ports = ServicePort.objects(cluster=cluster)
             for ports in cluster_ports:
@@ -199,7 +196,7 @@ class ClusterOnKubernetes(ClusterBase):
             return False
         return True
 
-    #在指定的cluster中添加一个元素
+    #add a element to specified cluster.
     def add(self, cid, element, user_id):
         try:
             cluster, cluster_name, kube_config, ports_index, external_port_start, \
@@ -209,22 +206,22 @@ class ClusterOnKubernetes(ClusterBase):
             def _save(data):
                 if data is None:
                     return;
-                deployment = DeploymentModel (id=data.get ('id', ""),
-                                              kind=data.get ('kind', ""),
-                                              name=data.get ('name', ""),
-                                              data=data.get ('data', {}),
+                deployment = DeploymentModel(id=data.get('id', ""),
+                                              kind=data.get('kind', ""),
+                                              name=data.get('name', ""),
+                                              data=data.get('data', {}),
                                               cluster=cluster);
 
-                deployment.save ();
+                deployment.save();
                 return;
 
-            container = {};
+            containers = {};
             type = element.get('type');
             params = element.get('params');
 
             if type == NODETYPE_PEER \
                     or type == NODETYPE_ORDERER:
-                container= operation.deploy_node(cluster_name,
+                containers = operation.deploy_node(cluster_name,
                                                 ports_index,
                                                 external_port_start,
                                                 params,
@@ -241,10 +238,10 @@ class ClusterOnKubernetes(ClusterBase):
                 return None;
 
         except Exception as e:
-            logger.error ("Failed to create Kubernetes Cluster: {}".format (e));
+            logger.error ("Failed to create Kubernetes Cluster: {}".format(e));
             return None;
 
-        return container;
+        return containers;
 
 
     def restart(self, name, worker_api, mapped_ports, log_type, log_level,
@@ -256,7 +253,7 @@ class ClusterOnKubernetes(ClusterBase):
                               log_level, log_server, config)
         else:
             logger.error("Failed to Restart Kubernetes Cluster")
-            return None
+            return False
 
     # replace "_" to "-" in the cluster name
     def trim_cluster_name(self, cluster_name):

@@ -474,25 +474,27 @@ class K8sClusterOperation():
             time.sleep(3)
 
     def _delete_k8s_resource(self, yaml_data):
-        for data in yaml_data:
-            if data is None:
-                continue
-            kind = data.get('kind', None)
-            name = data.get('metadata').get('name', None)
-            namespace = data.get('metadata').get('namespace', None)
+        data = yaml_data;
+        #for data in yaml_data:
+        if data is None:
+            # continue
+            return
+        kind = data.get('kind', None)
+        name = data.get('metadata').get('name', None)
+        namespace = data.get('metadata').get('namespace', None)
 
-            delete_data = client.V1DeleteOptions()
+        delete_data = client.V1DeleteOptions()
 
-            logs = "Delete namespace={}, name={}, kind={}".format(namespace,
-                                                                  name,
-                                                                  kind)
-            logger.info(logs)
+        logs = "Delete namespace={}, name={}, kind={}".format(namespace,
+                                                              name,
+                                                              kind)
+        logger.info(logs)
 
-            if kind in self.support_namespace:
-                self.delete_func_dict.get(kind)(name, namespace, delete_data)
-            else:
-                self.delete_func_dict.get(kind)(name, delete_data)
-            time.sleep(3)
+        if kind in self.support_namespace:
+            self.delete_func_dict.get(kind)(name, namespace, delete_data)
+        else:
+            self.delete_func_dict.get(kind)(name, delete_data)
+        time.sleep(3)
 
     def _setup_cluster(self, cluster_name):
         pod_commands_1 = ["peer channel create -c mychannel -o \
@@ -629,7 +631,7 @@ class K8sClusterOperation():
 
         pv_params={
             "orgx-pvc.tpl":{
-                "organizationId": params.get ('orgId'),
+                "organizationId": params.get('orgId',""),
                 "nfsServer": nfsServer_ip
             }
         }
@@ -659,7 +661,7 @@ class K8sClusterOperation():
                     orgId: the organization that new node belongs to
             :param str node_type: peer or orderer
         """
-        #为新增加的节点产生端口
+        # 为新增加的节点产生端口
         if ports_index:
             # 取出当前设置的最大端口
             current_port = int(max(ports_index)) + 5
@@ -689,8 +691,6 @@ class K8sClusterOperation():
             };
 
             self._deploy_node_orderer(cluster_name, node_params, save);
-
-
 
         return self._get_cluster_pods(cluster_name)
 
@@ -792,8 +792,7 @@ class K8sClusterOperation():
             return None
 
         # Execute commands for cluster
-        self._setup_cluster(cluster_name)
-
+        #self._setup_cluster(cluster_name)
         time.sleep(3)
 
         # fabric explorer at last
@@ -807,109 +806,51 @@ class K8sClusterOperation():
 
         return self._get_cluster_pods(cluster_name)
 
-    def _delete_cluster_resource(self, cluster_name,
-                                 cluster_ports, nfsServer_ip, consensus):
+    def _delete_cluster_resource(self, docs_deployments):
         """ The order to delete the cluster is reverse to
             create except for namespace
         """
-        file_data = self._render_config_file("fabric-1-0-explorer.tpl",
-                                             cluster_name, cluster_ports,
-                                             nfsServer_ip)
-        yaml_data = yaml.load_all(file_data)
-        self._delete_k8s_resource(yaml_data)
-
-        time.sleep(3)
-
-        current_path = os.path.dirname(__file__)
-        templates_path = os.path.join(current_path, "templates")
-        for (dir_path, dir_name, file_list) in os.walk(templates_path):
-            if 'extend' in dir_name:
-                dir_name.remove ('extend')
-
-            for file in file_list:
-                if "-ca" in file or "-cli" in file:
-                    file_data = self._render_config_file(file, cluster_name,
-                                                         cluster_ports,
-                                                         nfsServer_ip)
-                    yaml_data = yaml.load_all(file_data)
-                    self._delete_k8s_resource(yaml_data)
-
-            file_data = self._render_config_file("namespace.tpl",
-                                                 cluster_name,
-                                                 cluster_ports,
-                                                 nfsServer_ip)
-            yaml_data = yaml.load_all(file_data)
-            self._delete_k8s_resource(yaml_data)
-
+        for deployment in docs_deployments:
+            self._delete_k8s_resource(deployment.data)
             time.sleep(3)
+            #deployment.delete()
 
-            for file in file_list:
-                if "peer" in file:
-                    file_data = self._render_config_file(file,
-                                                         cluster_name,
-                                                         cluster_ports,
-                                                         nfsServer_ip)
-                    yaml_data = yaml.load_all(file_data)
-                    self._delete_k8s_resource(yaml_data)
 
-            time.sleep(3)
-
-            if consensus == "solo":
-                file_data = self._render_config_file("orderer0.ordererorg.tpl",
-                                                     cluster_name,
-                                                     cluster_ports,
-                                                     nfsServer_ip)
-            else:
-                file_data = self._render_config_file("orderer0.ordererorg-kafka.tpl",
-                                                     cluster_name,
-                                                     cluster_ports,
-                                                     nfsServer_ip)
-
-            time.sleep(3)
-
-            yaml_data = yaml.load_all(file_data)
-            self._delete_k8s_resource(yaml_data)
-
-            for file in file_list:
-                if "pvc" in file:
-                    file_data = self._render_config_file(file,
-                                                         cluster_name,
-                                                         cluster_ports,
-                                                         nfsServer_ip)
-                    yaml_data = yaml.load_all(file_data)
-                    self._delete_k8s_resource(yaml_data)
-
-    def delete_cluster(self, cluster_name, ports_index,
-                       nfsServer_ip, consensus):
-        cluster_ports = self._get_cluster_ports(ports_index, 40000)
-        self._delete_cluster_resource(cluster_name, cluster_ports,
-                                      nfsServer_ip, consensus)
+    def delete_cluster(self,cluster_name, docs_deployment):
+        self._delete_cluster_resource(docs_deployment)
         time.sleep(2)
+
         self._delete_config_file(cluster_name)
         time.sleep(5)
+
         return True
 
-    def stop_cluster(self, cluster_name, ports_index, nfsServer_ip, consensus):
-        cluster_ports = self._get_cluster_ports(ports_index, 40000)
-        self._delete_cluster_resource(cluster_name, cluster_ports,
-                                      nfsServer_ip, consensus)
+    def stop_cluster(self, docs_deployment):
+        self._delete_cluster_resource(docs_deployment)
         time.sleep(2)
+
         return True
 
-    def start_cluster(self, cluster_name, ports_index, nfsServer_ip,
-                      consensus):
-        cluster_ports = self._get_cluster_ports(ports_index, 40000)
-        self._deploy_cluster_resource(cluster_name, cluster_ports,
-                                      nfsServer_ip, consensus)
-        time.sleep(2)
-        # fabric explorer at last
-        file_data = self._render_config_file("fabric-1-0-explorer.tpl",
-                                             cluster_name,
-                                             cluster_ports,
-                                             nfsServer_ip)
-        yaml_data = yaml.load_all(file_data)
-        self._deploy_k8s_resource(yaml_data)
-        time.sleep(2)
+    def start_cluster(self, cluster_name, doc_deployments):
+        kind_dict = ['Namespace','PersistentVolume',
+                     'PersistentVolumeClaim',
+                     'Deployment', 'Service', ]
+
+        explorer_datas = []
+        cluster_datas=[]
+        for kind in kind_dict:
+            for deployment in doc_deployments:
+                if deployment.kind == kind:
+                    if 'explorer' in deployment.name:
+                        explorer_datas.append(deployment.data)
+                    else:
+                        cluster_datas.append(deployment.data)
+
+        self._deploy_k8s_resource(cluster_datas)
+        #self._setup_cluster(cluster_name)
+        #time.sleep(3)
+
+        self._deploy_k8s_resource(explorer_datas)
         return self._get_cluster_pods(cluster_name)
 
     def _fomart_yaml_data(self, data):

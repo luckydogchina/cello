@@ -156,3 +156,10 @@ class HostSchema(Schema):
         clusters = Cluster.objects(host=host)
 
         return [str(cluster.id) for cluster in clusters]
+
+# class DeploymentSchema(Schema):
+#     deployments = fields.Method("get_deployments", dump_only=True)
+#     namespace
+#     def get_deployments(self, deployment):
+#         deployments = Deployment.objects()
+#         return [ for deployment in deployments]

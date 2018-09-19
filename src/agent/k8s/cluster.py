@@ -10,7 +10,7 @@ from agent import KubernetesOperation
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from common import log_handler, LOG_LEVEL, \
-    NODETYPE_ORDERER, NODETYPE_PEER, ELEMENT_PVC
+    NODETYPE_ORDERER, NODETYPE_PEER, NODETYPE_CA, ELEMENT_PVC
 
 from agent import compose_up, compose_clean, compose_start, compose_stop, \
     compose_restart
@@ -219,8 +219,8 @@ class ClusterOnKubernetes(ClusterBase):
             type = element.get('type');
             params = element.get('params');
 
-            if type == NODETYPE_PEER \
-                    or type == NODETYPE_ORDERER:
+            type_dict = [NODETYPE_PEER, NODETYPE_CA, NODETYPE_ORDERER]
+            if type in type_dict:
                 containers = operation.deploy_node(cluster_name,
                                                 ports_index,
                                                 external_port_start,

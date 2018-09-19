@@ -19,7 +19,7 @@ from jinja2 import Template, Environment, FileSystemLoader
 from kubernetes import client, config
 from kubernetes.stream import stream
 
-from common import NODETYPE_ORDERER, NODETYPE_PEER
+from common import NODETYPE_ORDERER, NODETYPE_PEER, NODETYPE_CA
 
 logger = logging.getLogger(__name__)
 logger.setLevel(LOG_LEVEL)
@@ -626,6 +626,9 @@ class K8sClusterOperation():
 
         return
 
+    def _deploy_node_ca(self, cluster_name, node_params, sava=None):
+        pass
+
     # add a organization msp file to pv
     def deploy_org_pvc(self, cluster_name, nfsServer_ip, params, save=None):
 
@@ -680,7 +683,7 @@ class K8sClusterOperation():
                 }
             };
 
-            self._deploy_node_peer(cluster_name,  node_params, save);
+            self._deploy_node_peer(cluster_name, node_params, save);
         elif node_type == NODETYPE_ORDERER:
             node_params = {
                 "ordererx.ordererorg-kafka.tpl":{
@@ -691,7 +694,16 @@ class K8sClusterOperation():
             };
 
             self._deploy_node_orderer(cluster_name, node_params, save);
+        elif node_type == NODETYPE_CA:
+            node_params = {
+                "ordererx.ordererorg-kafka.tpl": {
+                    "nodePort": str (current_port + 2),
+                    "ordererId": params.get ('nodeId'),
+                    "organizationId": params.get ('orgId')
+                }
+            };
 
+            self._deploy_node_ca(cluster_name, node_params, save)
         return self._get_cluster_pods(cluster_name)
 
 

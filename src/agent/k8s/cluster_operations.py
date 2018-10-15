@@ -813,6 +813,10 @@ class K8sClusterOperation():
             time.sleep(3)
 
     def delete_cluster(self, cluster_name, docs_deployment):
+        respond = crypto_client.delete_fabric_network (cluster_name)
+        if respond.code != 200:
+            raise respond
+
         self._delete_cluster_resource(docs_deployment)
         time.sleep(2)
 
@@ -887,23 +891,24 @@ class K8sClusterOperation():
 
         for org_name in delete_orgs:
             original_org = original_orgs.get(org_name)
+            #org_name = org_name.lower()
             id = cluster_name + "-" + org_name + "-pvc"
-            delete_list.append(id)
+            delete_list.append(id.lower())
             id = cluster_name + "-" + org_name + "-pv"
-            delete_list.append(id)
+            delete_list.append(id.lower())
             id = "ca-" + org_name
-            delete_list.append(id)
+            delete_list.append(id.lower())
 
             for original_peer in original_org.get("peers"):
                 id = original_peer + "-" + org_name
-                delete_list.append(id)
+                delete_list.append(id.lower())
 
             original_orgs.pop(org_name)
 
         for org_name, original_org in original_orgs.items():
             org_name = original_org.get("org_name")
             update_org = update_orgs.get(org_name)
-            org_name = org_name.lower()
+            #org_name = org_name.lower()
 
             for original_peer in original_org.get("peers"):
                 is_find = False
@@ -913,7 +918,7 @@ class K8sClusterOperation():
                         break
                 if not is_find:
                     id = original_peer + "-" + org_name
-                    delete_list.append(id)
+                    delete_list.append(id.lower())
 
         # check the orderer node
         if original.get("consensus") == "solo":
@@ -938,13 +943,13 @@ class K8sClusterOperation():
         new_elements = []
         new_orderers = []
 
-        original_orgs = dict ((org.get ("org_name", ""), org)
-                              for org in original.get ("application", []))
-        update_orgs = dict ((org.get ("org_name", ""), org)
-                            for org in update.get ("application", []))
+        original_orgs = dict((org.get("org_name", ""), org)
+                              for org in original.get("application", []))
+        update_orgs = dict((org.get("org_name", ""), org)
+                            for org in update.get("application", []))
 
-        new_orgs = list (filter (lambda x: original_orgs.get (x, None) is None,
-                                    update_orgs.keys ()))
+        new_orgs = list(filter(lambda x: original_orgs.get(x, None) is None,
+                                    update_orgs.keys()))
 
         for org_name in new_orgs:
             update_org = update_orgs.get(org_name)
@@ -953,8 +958,8 @@ class K8sClusterOperation():
             params.set("organizationId", org_name.lower())
             params.set("domain", update_org.get("domain"))
 
-            for update_peer in update_org.get ("peers"):
-                params_peer = params.copy ()
+            for update_peer in update_org.get("peers"):
+                params_peer = params.copy()
                 params_peer.set("peerId", update_peer)
                 new_elements.append(Element(NODETYPE_PEER, params_peer))
 
@@ -1015,16 +1020,24 @@ class K8sClusterOperation():
         new_list, new_orgs, new_orderes = \
             self._update_new(original_config, cluster_config)
 
+        # 先生成配置文件并复制
+        if len(new_list):
+            respond = crypto_client.update_fabric_network(ClusterEnvelop(
+                cluster_id=cluster_name,
+                net_work=cluster_config))
+
+            if respond.code != 200:
+                logger.error ("update_fabric_network:{}".format (respond))
+                raise respond
+
+        cluster_path = os.path.join ('/cello', cluster_name)
+        resources_path = os.path.join ('/resources', cluster_name)
+
+        common.copytree(resources_path, cluster_path,
+                         overwrite=self.__overwrite,
+                         ignore=self.__ignore)
+
         def _run_update():
-            if len(new_list):
-                respond = crypto_client.update_fabric_network(ClusterEnvelop(
-                    cluster_id = cluster_name,
-                    net_work = cluster_config))
-
-                if respond.code != 200:
-                    logger.error("update_fabric_network:{}".format(respond))
-                    return False
-
             updates = len(new_orgs) + len(new_orderes) + \
                       len(delete_orgs) + len(delete_orderers)
 
@@ -1102,14 +1115,7 @@ class K8sClusterOperation():
             self._pod_exec_command(pod, cluster_name, pod_commands[3])
             time.sleep(3)
 
-            cluster_path = os.path.join('/cello', cluster_name)
-            resources_path = os.path.join('/resources', cluster_name)
 
-
-
-            common.copytree(resources_path, cluster_path,
-                            overwrite=self.__overwrite,
-                            ignore=self.__ignore)
             return True
 
         return delete_list, new_list, _run_update

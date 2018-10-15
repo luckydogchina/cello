@@ -382,9 +382,9 @@ class ClusterHandler(object):
             return False
 
         # creation done, update the container table in db
-        if len(containers.items()) != 0 :
+        if len(containers) != 0 :
             exist_containers = Container.objects(cluster=cluster)
-            for container in exist_containers.items:
+            for container in exist_containers:
                 container.delete()
 
             for k, v in containers.items():
@@ -401,7 +401,7 @@ class ClusterHandler(object):
         # update the service port table in db
         if len(service_urls.items()) != 0 :
             service_ports = ServicePort.objects(cluster=cluster)
-            for port in service_ports.items:
+            for port in service_ports:
                 port.delete();
 
             for k, v in service_urls.items():

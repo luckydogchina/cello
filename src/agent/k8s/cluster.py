@@ -323,7 +323,7 @@ class ClusterOnKubernetes(ClusterBase):
                     return None;
 
             # run the config update
-            if not run_upadte_config ():
+            if not run_upadte_config():
                 return None
 
             # delete the elements

@@ -7,7 +7,7 @@ import datetime
 
 import logging
 from mongoengine import Document, StringField, \
-    BooleanField, DateTimeField, IntField, \
+    BooleanField, DateTimeField, IntField, ObjectIdField,\
     ReferenceField, DictField, ListField, LongField, CASCADE
 from enum import Enum
 from marshmallow import Schema, fields
@@ -60,6 +60,8 @@ class Cluster(Document):
     env = DictField(default={})
     consensus_plugin = StringField(default="")
     external_port_start = IntField(default=0)
+    network = DictField(default={})
+
 
 # this object is set to save the k8s deployment data
 class Deployment(Document):

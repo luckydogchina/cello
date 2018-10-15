@@ -337,7 +337,7 @@ class ClusterHandler(object):
                 if external_port_start != external_port:
                     break
                 else:
-                    external_port_start += 100
+                    external_port_start += CLUSTER_PORT_STEP
 
         network_type = config['network_type']
 
@@ -372,19 +372,24 @@ class ClusterHandler(object):
 
 
     # add one element to one existence cluster
-    def _add_element(self, cluster, cid, worker, element, user_id):
-        containers = self.cluster_agents[worker.type].add(cid, element, user_id)
+    def _update_cluster(self, cluster, cid, worker, element, user_id):
+        containers = self.cluster_agents[worker.type].update(cid, element, user_id)
 
         # update cluster containers and service urls info
         if containers is None :
-            logger.warning ("failed to add element to cluster={}"
+            logger.warning("failed to add element to cluster={}"
                             .format(cluster.name))
             return False
 
         # creation done, update the container table in db
-        for k, v in containers.items():
-            container = Container(id=v, name=k, cluster=cluster)
-            container.save()
+        if len(containers.items()) != 0 :
+            exist_containers = Container.objects(cluster=cluster)
+            for container in exist_containers.items:
+                container.delete()
+
+            for k, v in containers.items():
+                container = Container(id=v, name=k, cluster=cluster)
+                container.save()
 
         # service urls can only be calculated after service is created
         if worker.type == WORKER_TYPE_K8S:
@@ -394,19 +399,35 @@ class ClusterHandler(object):
             return False
 
         # update the service port table in db
-        for k, v in service_urls.items():
-            ip = v.split(":")[0]
-            port = v.split(":")[1]
-            # the kafka and zookeeper containers do not own external ports, It is none.
-            if port is not None:
-                service_port = ServicePort(name=k, ip=ip,
-                                            port=int(v.split(":")[1]),
-                                            cluster=cluster)
-                service_port.save()
+        if len(service_urls.items()) != 0 :
+            service_ports = ServicePort.objects(cluster=cluster)
+            for port in service_ports.items:
+                port.delete();
+
+            for k, v in service_urls.items():
+                ip = v.split(":")[0]
+                port = v.split(":")[1]
+                # the kafka and zookeeper containers do not own external ports, It is none.
+                if port is not None:
+                    service_port = ServicePort(name=k, ip=ip,
+                                                port=int(v.split(":")[1]),
+                                                cluster=cluster)
+                    service_port.save()
+
+        # update api_url, container, user_id and status
+        self.db_update_one(
+            {"id": cid},
+            {
+                "user_id": user_id,
+                'api_url': service_urls.get('rest', ""),
+                'service_url': service_urls,
+                'status': NETWORK_STATUS_RUNNING
+            }
+        )
         return True
 
 
-    def add(self, cluster_id, host_id, element, user_id=""):
+    def update(self, cluster_id, host_id, element, user_id=""):
         """ add one element to one existence cluster
             :param cluster_id: the cluster id must be created
             :param host_id: which the cluster belonged to
@@ -438,7 +459,7 @@ class ClusterHandler(object):
 
         #TODO: prepare ports, but k8s do not need to do here.
         if worker.type == WORKER_TYPE_K8S:
-            return self._add_element(cluster, cluster_id, worker, element, user_id)
+            return self._update_cluster(cluster, cluster_id, worker, element, user_id)
         else:
             return False
 

@@ -7,16 +7,18 @@ import sys
 
 from agent import K8sClusterOperation
 from agent import KubernetesOperation
+from agent.k8s.cluster_operations import Params
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from common import log_handler, LOG_LEVEL, \
-    NODETYPE_ORDERER, NODETYPE_PEER, NODETYPE_CA, ELEMENT_PVC
+    NODETYPE_ORDERER, NODETYPE_PEER, NODETYPE_CA, ELEMENT_PVC, CLUSTER_PORT_STEP, CA_PORTS_UPPER_LIMIT, \
+    ORDERER_PORTS_UPPER_LIMIT
 
 from agent import compose_up, compose_clean, compose_start, compose_stop, \
     compose_restart
 
 from common import NETWORK_TYPES, CONSENSUS_PLUGINS_FABRIC_V1, \
-    CONSENSUS_MODES, NETWORK_SIZE_FABRIC_PRE_V1
+    CONSENSUS_MODES, NETWORK_SIZE_FABRIC_PRE_V1, ClusterEnvelop
 
 from ..cluster_base import ClusterBase
 
@@ -60,6 +62,34 @@ class ClusterOnKubernetes(ClusterBase):
 
     def create(self, cid, mapped_ports, host, config, user_id):
         try:
+            cluster_network = config.get("network", None)
+            if cluster_network is None:
+                logger.error("the cluster network config is None.")
+                return None
+
+            # check if the port sources is enough.
+            if len(cluster_network.get("orderer",[])) > CA_PORTS_UPPER_LIMIT:
+                logger.error(" the number of orderer nodes is over {}.".format(CA_PORTS_UPPER_LIMIT))
+                return None
+
+            if len(cluster_network.get("application", [])) > ORDERER_PORTS_UPPER_LIMIT:
+                logger.error (" the number of organization is over {}.".format(ORDERER_PORTS_UPPER_LIMIT))
+                return None
+
+            port_num = 0
+            for org in cluster_network.get("application", []):
+                port_num += len(org.get("peers", []))*3
+
+            peer_ports_max = CLUSTER_PORT_STEP - CA_PORTS_UPPER_LIMIT - ORDERER_PORTS_UPPER_LIMIT
+            if port_num > peer_ports_max:
+                logger.error (" the number of peer ports is over {}.".format(peer_ports_max))
+                return None
+
+            if port_num > CLUSTER_PORT_STEP:
+                logger.error("port_num: {} > CLUSTER_PORT_STEP {},"
+                             " the ports is not enough.".format(port_num, CLUSTER_PORT_STEP))
+                return None
+
             cluster, cluster_name, kube_config, ports_index, external_port_start, \
                 nfsServer_ip, consensus = self._get_cluster_info(cid, config)
 
@@ -69,7 +99,7 @@ class ClusterOnKubernetes(ClusterBase):
             def _save(data):
                 if data is None:
                     return ;
-                deployment = DeploymentModel (id=data.get('id',""),
+                deployment = DeploymentModel(id=data.get('id',""),
                                               kind=data.get('kind',""),
                                               name=data.get('name',""),
                                               data=data.get('data',{}),
@@ -78,11 +108,12 @@ class ClusterOnKubernetes(ClusterBase):
                 deployment.save();
                 return ;
 
+
             containers = operation.deploy_cluster(cluster_name,
                                                 ports_index,
                                                 external_port_start,
                                                 nfsServer_ip,
-                                                consensus,
+                                                cluster_network,
                                                 _save)
 
         except Exception as e:
@@ -97,12 +128,12 @@ class ClusterOnKubernetes(ClusterBase):
 
             operation = K8sClusterOperation(kube_config)
             cluster_name = self.trim_cluster_name(cluster_name)
-            deployments = DeploymentModel.objects (cluster=cluster)
+            deployments = DeploymentModel.objects(cluster=cluster)
             operation.delete_cluster(cluster_name, deployments)
 
             # only delete the deployments during deleting cluster
             for deployment in deployments:
-                deployment.delete ()
+                deployment.delete()
 
             # delete ports for clusters
             cluster_ports = ServicePort.objects(cluster=cluster)
@@ -196,46 +227,121 @@ class ClusterOnKubernetes(ClusterBase):
             return False
         return True
 
-    #add a element to specified cluster.
-    def add(self, cid, element, user_id):
+    def _release_port(self, map_ports, node_id):
+        map_ports = dict(filter(lambda x : node_id not in x[0], map_ports.items()))
+        return map_ports
+
+    def _find_free_port(self, extarnel_start_port, ports, type=""):
+        param = Params ()
+        if type == NODETYPE_PEER:
+            candidates = [i for i in range(extarnel_start_port + 20, extarnel_start_port + 97)]
+            free = lambda x : x not in ports and (x+1) not in ports and (x + 2) not in ports
+            free_ports = list(filter(free, candidates))
+            if len(free_ports):
+                start = free_ports[0]
+                ports.append(start)
+                param.set("nodePort", start)
+                ports.append(start + 1)
+                param.set("chaincodePort", start + 1)
+                ports.append(start + 2)
+                param.set("eventPort", start + 2)
+                return param
+            else:
+                logger.error("peers ports are exhausted!")
+                return None
+        elif type == NODETYPE_CA or type == NODETYPE_ORDERER:
+            candidates = [i for i in range(extarnel_start_port, extarnel_start_port + 9)]
+            free = lambda x : x not in ports not in ports
+            free_ports = list(filter (free, candidates))
+            if len(free_ports):
+                start = free_ports[0]
+                ports.append (start)
+                param.set("nodePort", start)
+                return param
+            else:
+                logger.error ("{} ports are exhausted!".format(type))
+                return None
+        else:
+            return param
+
+    # update to specified cluster.
+    def update(self, cid, cluster_config, user_id):
         try:
             cluster, cluster_name, kube_config, ports_index, external_port_start, \
-            nfsServer_ip, consensus = self._get_cluster_info(cid);
+            nfs_server_ip, consensus = self._get_cluster_info(cid);
             operation = K8sClusterOperation(kube_config);
 
+            map_ports = dict((service.name, service.port) for service in ServicePort
+                              .objects(cluster=cluster))
+            ports = [value for value in map_ports.values ()]
+
+            delete_list, new_list, run_upadte_config = \
+                operation.update_config(cluster_name, cluster.network, cluster_config)
+
+            for id in delete_list:
+                map_ports = self._release_port(map_ports, str(id).replace ("-", "_"))
+
+
+            for new_element in new_list:
+                param = self._find_free_port(external_port_start,
+                                     ports, new_element.get("type"))
+
+                if param is None:
+                    return None
+
+                new_element.get("params",{}).update(param)
+
+            # new the elements
             def _save(data):
                 if data is None:
                     return;
-                deployment = DeploymentModel(id=data.get('id', ""),
-                                              kind=data.get('kind', ""),
-                                              name=data.get('name', ""),
-                                              data=data.get('data', {}),
+                deployment = DeploymentModel(id=data.get ('id', ""),
+                                              kind=data.get ('kind', ""),
+                                              name=data.get ('name', ""),
+                                              data=data.get ('data', {}),
                                               cluster=cluster);
 
                 deployment.save();
                 return;
 
             containers = {};
-            type = element.get('type');
-            params = element.get('params');
+            for element in new_list:
+                type = element.get('type');
+                params = element.get('params');
 
-            type_dict = [NODETYPE_PEER, NODETYPE_CA, NODETYPE_ORDERER]
-            if type in type_dict:
-                containers = operation.deploy_node(cluster_name,
-                                                ports_index,
-                                                external_port_start,
-                                                params,
-                                                type,
-                                                 _save);
-            elif type == ELEMENT_PVC:
-                operation.deploy_org_pvc(cluster_name,
-                                         nfsServer_ip,
-                                         params,
-                                         _save);
-            else:
-                logger.warning("type: {} is not supported to "
-                               "add into cluster".format(element['type']));
-                return None;
+                type_dict = [NODETYPE_PEER, NODETYPE_CA, NODETYPE_ORDERER]
+                if type in type_dict:
+                    containers = operation.deploy_node(cluster_name, params, type, _save);
+                elif type == ELEMENT_PVC:
+                    operation.deploy_org_pvc(cluster_name,
+                                              nfs_server_ip,
+                                              params,
+                                              _save);
+                else:
+                    logger.warning("type: {} is not supported to "
+                                    "add into cluster".format (element['type']));
+                    return None;
+
+            # run the config update
+            if not run_upadte_config ():
+                return None
+
+            # delete the elements
+            deployments = []
+            for id in delete_list:
+                deployment = DeploymentModel.objects(cluster=cluster, name=id)
+
+                for item in deployment:
+                    deployments.append(item)
+
+
+            deployments = operation.pod_replica_delete_list(cluster_name,
+                                                   delete_list,
+                                                   deployments)
+            operation.delete_resources(deployments)
+
+            for deployment in deployments:
+                deployment.delete()
 
         except Exception as e:
             logger.error ("Failed to create Kubernetes Cluster: {}".format(e));

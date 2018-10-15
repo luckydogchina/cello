@@ -4,6 +4,7 @@
 #
 import json
 import os
+import shutil
 
 CLUSTER_NETWORK = "cello_net"
 
@@ -44,6 +45,8 @@ HOST_STATUS_PENDING = 'pending'
 
 # number of port allocated to each cluster in case collision
 CLUSTER_PORT_STEP = 100
+CA_PORTS_UPPER_LIMIT = 10
+ORDERER_PORTS_UPPER_LIMIT = 10
 
 PEER_SERVICE_PORTS = {
     'rest': 7050,  # this is the reference starter for cluster port step
@@ -157,6 +160,7 @@ DEFAULT_TIMEOUT = 300
 NODETYPE_PEER = "peer"
 NODETYPE_ORDERER = "orderer"
 NODETYPE_CA = "ca"
+NODETYPE_CLI = "cli"
 ELEMENT_PVC="pvc"
 
 EXTERNAL_SUB_MIX=31000
@@ -205,3 +209,76 @@ def request_json_body(request, default_value={}):
         return json_body
     except Exception:
         return default_value
+
+
+def copytree(src, dst, symlinks=False, overwrite = None, ignore=None):
+    '''
+    :param src: the src is a dir
+    :param dst: the dst is a dir
+    :param symlinks: make a sysmlinks
+    :param overwrite: overwrite if the dst is existed
+    :param ignore:
+    :return:
+    '''
+    names = os.listdir(src)
+    if ignore is not None:
+        ignored_names = ignore(src, names)
+    else:
+        ignored_names = set()
+
+    # if overwrites is not None:
+    #     overwrites =
+    # else:
+
+    if not os.path.isdir(dst):
+        os.makedirs(dst)
+    errors = []
+    for name in names:
+        if name in ignored_names:
+            continue
+        srcname = os.path.join(src, name)
+        dstname = os.path.join(dst, name)
+        try:
+            if os.path.islink(srcname):
+                linkto = os.readlink(srcname)
+                if symlinks:
+                    # We can't just leave it to `copy_function` because legacy
+                    # code with a custom `copy_function` may rely on copytree
+                    # doing the right thing.
+                    os.symlink(linkto, dstname)
+                    shutil.copystat(srcname, dstname, follow_symlinks=not symlinks)
+                else:
+                    # ignore dangling symlink if the flag is on
+                    if not os.path.exists(linkto):
+                        continue
+                    # otherwise let the copy occurs. copy2 will raise an error
+                    if os.path.isdir(srcname):
+                        copytree(srcname, dstname, symlinks, overwrite, ignore)
+                    else:
+                        shutil.copy2(srcname, dstname)
+            elif os.path.isdir(srcname):
+                copytree(srcname, dstname, symlinks, overwrite, ignore)
+            else:
+                if overwrite is not None:
+                    if os.path.isfile(dstname):
+                        overwrite(srcname, dstname)
+                    else:
+                        shutil.copy2(srcname, dstname)
+                else:
+                    # Will raise a SpecialFileError for unsupported file types
+                    shutil.copy2(srcname, dstname)
+        # catch the Error from the recursive copytree so that we can
+        # continue with other files
+        except shutil.Error as err:
+            errors.extend (err.args[0])
+        except OSError as why:
+            errors.append ((srcname, dstname, str (why)))
+    try:
+        shutil.copystat(src, dst)
+    except OSError as why:
+        # Copying file access times may fail on Windows
+        if getattr (why, 'winerror', None) is None:
+            errors.append((src, dst, str (why)))
+    if errors:
+        raise shutil.Error(errors)
+    return dst

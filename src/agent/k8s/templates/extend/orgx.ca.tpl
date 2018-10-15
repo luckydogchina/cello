@@ -25,13 +25,13 @@ spec:
          - name:  FABRIC_CA_SERVER_TLS_ENABLED
            value: "false"
          - name:  FABRIC_CA_SERVER_TLS_CERTFILE
-           value: /etc/hyperledger/fabric-ca-server-config/ca.{{organizationId}}-cert.pem
+           value: /etc/hyperledger/fabric-ca-server-config/ca.{{domain}}-cert.pem
          - name:  FABRIC_CA_SERVER_TLS_KEYFILE
-           value: /etc/hyperledger/fabric-ca-server-config/{{caServerPrivateKey}}
+           value: /etc/hyperledger/fabric-ca-server-config/{{privateKey}}
          ports:
           - containerPort: 7054
          command: ["sh"]
-         args:  ["-c", " fabric-ca-server start --ca.certfile /etc/hyperledger/fabric-ca-server-config/ca.{{organizationId}}-cert.pem --ca.keyfile /etc/hyperledger/fabric-ca-server-config/{{caServerPrivateKey}} -b admin:adminpw -d "]
+         args:  ["-c", " fabric-ca-server start --ca.certfile /etc/hyperledger/fabric-ca-server-config/ca.{{domain}}-cert.pem --ca.keyfile /etc/hyperledger/fabric-ca-server-config/{{privateKey}} -b admin:adminpw -d "]
          volumeMounts:
           - mountPath: /etc/hyperledger/fabric-ca-server-config
             name: certificate

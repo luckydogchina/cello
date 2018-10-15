@@ -34,7 +34,6 @@ class ClusterBase(object):
     def stop(self, *args, **kwargs):
         return
 
-    #添加一个节点
     @abc.abstractmethod
-    def add(self, *args, **kwargs):
+    def update(self, *args, **kwargs):
         return

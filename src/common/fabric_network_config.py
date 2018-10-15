@@ -92,6 +92,9 @@ class FabricV1NetworkConfig(BlockchainNetworkConfig):
         return self.consensus_plugin in CONSENSUS_PLUGINS_FABRIC_V1 and \
             self.size in NETWORK_SIZE_FABRIC_V1
 
+    def network(self, network):
+        self.__setattr__("network", network)
+
 
 if __name__ == "__main__":
     import doctest

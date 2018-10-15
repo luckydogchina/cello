@@ -77,17 +77,12 @@ spec:
         command: ["/bin/bash", "-c", "--"]
         args: ["sleep 5; peer node start"]
         volumeMounts:
-         #- mountPath: /opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
-         #  name: certificate
-         #  subPath: channel-artifacts
          - mountPath: /etc/hyperledger/fabric/msp
            name: certificate
-           #subPath: crypto-config/peerOrganizations/{{organizationId}}.example.com/peers/{{peerId}}.{{organizationId}}.example.com/msp
-           subPath: peers/{{peerId}}.{{organizationId}}/msp
+           subPath: peers/{{peerId}}.{{domain}}/msp
          - mountPath: /etc/hyperledger/fabric/tls
            name: certificate
-           #subPath: crypto-config/peerOrganizations/{{organizationId}}.example.com/peers/{{peerId}}.{{organizationId}}.example.com/tls/
-           subPath: peers/{{peerId}}.{{organizationId}}/tls
+           subPath: peers/{{peerId}}.{{domain}}/tls
          - mountPath: /var/hyperledger/production
            name: certificate
            subPath: peers/{{peerId}}.{{organizationId}}/production
@@ -115,11 +110,11 @@ spec:
    org: {{organizationId}}
  type: NodePort
  ports:
-   - name: externale-listen-endpoint
+   - name: external-listen-endpoint
      protocol: TCP
      port: 7051
      targetPort: 7051
-     nodePort: {{externalPort}}
+     nodePort: {{nodePort}}
 
    - name: chaincode-listen
      protocol: TCP
@@ -131,6 +126,6 @@ spec:
      protocol: TCP
      port: 7053
      targetPort: 7053
-     nodePort: {{nodePort}}
+     nodePort: {{eventPort}}
 
 ---

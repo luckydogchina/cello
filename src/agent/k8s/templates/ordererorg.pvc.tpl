@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: {{clusterName}}-{{organizationId}}-pv
+  name: {{clusterName}}-ordererorg-pv
 spec:
   capacity:
     storage: 500Mi
@@ -10,9 +10,9 @@ spec:
     - ReadWriteMany
   claimRef:
     namespace: {{clusterName}}
-    name: {{clusterName}}-{{organizationId}}-pvc
+    name: {{clusterName}}-ordererorg-pvc
   nfs:
-    path: /{{clusterName}}/resources/crypto-config/peerOrganizations/{{organizationId}}
+    path: /{{clusterName}}/crypto-config/ordererOrganizations/{{domain}}
     server: {{nfsServer}}  #change to your nfs server ip here
 
 ---
@@ -20,7 +20,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
  namespace: {{clusterName}}
- name: {{clusterName}}-{{organizationId}}-pvc
+ name: {{clusterName}}-ordererorg-pvc
 spec:
  accessModes:
    - ReadWriteMany

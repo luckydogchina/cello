@@ -16,7 +16,7 @@ spec:
         orderer-id: {{ordererId}}
     spec:
       containers:
-      - name: {{ordererId}}-{{organizationId}}
+      - name: orderer0-ordererorg
         image: hyperledger/fabric-orderer:amd64-1.2.0
         env:
         - name: ORDERER_GENERAL_LOGLEVEL
@@ -39,14 +39,6 @@ spec:
           value: /var/hyperledger/orderer/tls/server.crt
         - name: ORDERER_GENERAL_TLS_ROOTCAS
           value: '[/var/hyperledger/orderer/tls/ca.crt]'
-        - name: ORDERER_KAFKA_RETRY_SHORTINTERVAL
-          value: "5s"
-        - name: ORDERER_KAFKA_RETRY_SHORTTOTAL
-          value: "30s"
-        - name: ORDERER_KAFKA_VERBOSE
-          value: "true"
-        - name: ORDERER_KAFKA_BROKERS
-          value: '[kafka0:9092,kafka1:9092,kafka2:9092]'
         workingDir: /opt/gopath/src/github.com/hyperledger/fabric/peer
         ports:
          - containerPort: 7050
@@ -54,34 +46,36 @@ spec:
         volumeMounts:
          - mountPath: /var/hyperledger/orderer/msp
            name: certificate
-           #subPath: crypto-config/organizationIds/example.com/orderers/orderer.example.com/msp
-           subPath: orderers/{{ordererId}}.{{organizationId}}/msp
+           subPath: orderers/{{ordererId}}.{{domain}}/msp
          - mountPath: /var/hyperledger/orderer/tls
            name: certificate
-           #subPath: crypto-config/organizationIds/example.com/orderers/orderer.example.com/tls/
-           subPath: orderers/{{ordererId}}.{{organizationId}}/tls
+           subPath: orderers/{{ordererId}}.{{domain}}/tls
          - mountPath: /var/hyperledger/orderer/orderer.genesis.block
            name: certificate
            subPath: genesis.block
          - mountPath: /var/hyperledger/production
            name: certificate
-           subPath: orderers/{{ordererId}}.{{organizationId}}/production
+           subPath: orderers/{{ordererId}}.{{domain}}/production
       volumes:
        - name: certificate
          persistentVolumeClaim:
              claimName: {{clusterName}}-{{organizationId}}-pvc
+         #persistentVolumeClaim:
+         #  claimName: nfs
+
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ordererId}}
+  name: orderer0
   namespace: {{clusterName}}
 spec:
  selector:
    app: hyperledger
    role: orderer
-   orderer-id: {{ordererId}}
-   org: {{organizationId}}
+   orderer-id: orderer0
+   org: ordererorg
  type: NodePort
  ports:
    - name: listen-endpoint

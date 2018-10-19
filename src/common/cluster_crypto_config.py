@@ -6,15 +6,17 @@ class cluster(dict):
     def __setattr__(self, key, value):
         self[key] = value
 
+
 class Organization(cluster):
     org_name = str
     domain = str
     peers_num = int
 
-    def __init__(self, org_name, domain, peers):
+    def __init__(self, org_name, domain, peers, anchor_peer=""):
         self.__setattr__("org_name", org_name)
         self.__setattr__("domain", domain)
         self.__setattr__("peers", peers)
+        self.__setattr__("anchor_peer", anchor_peer)
         super(Organization, self).__init__()
 
 

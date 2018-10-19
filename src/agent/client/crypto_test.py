@@ -10,9 +10,9 @@ from common import Organization, \
     ClusterUpdateV1, ChannelComputeUpdateV1
 
 
-org1 = Organization("org1","org1.example.com", ["peer0","peer1"])
-org2 = Organization("org2","org2.example.com", ["peer0","peer1"])
-org3 = Organization("org3","org3.example.com", ["peer0","peer1"])
+org1 = Organization("org1","org1.example.com", ["peer0","peer1"], "peer0")
+org2 = Organization("org2","org2.example.com", ["peer0","peer1"], "peer0")
+org3 = Organization("org3","org3.example.com", ["peer0","peer1"], "peer0")
 ordererOrg = Organization("ordererOrg","orderer.example.com",["orderer0"])
 
 net_work = ClusterNetwork(version="fabric-1.2", orderer=ordererOrg, application=[org2, org1])

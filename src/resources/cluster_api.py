@@ -130,6 +130,15 @@ def cluster_apply(r):
         return make_ok_resp(data=c)
 
 
+def cluster_fetch(r):
+    """
+    return the specify cluster info and config_json.
+    :param r:
+    :return:
+    """
+
+    pass
+
 def cluster_release(r):
     """Release a cluster which should be in used status currently.
 
@@ -173,6 +182,8 @@ def cluster_actions():
         return cluster_stop(r)
     elif action == "restart":
         return cluster_restart(r)
+    elif action == "fetch":
+        return cluster_fetch(r)
     else:
         return make_fail_resp(error="Unknown action type")
 
@@ -414,3 +425,4 @@ def cluster_release_dep():
             return make_fail_resp(error=error_msg, data=data)
         else:
             return make_ok_resp()
+

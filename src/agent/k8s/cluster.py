@@ -8,6 +8,7 @@ import sys
 from agent import K8sClusterOperation
 from agent import KubernetesOperation
 from agent.k8s.cluster_operations import Params
+from modules.models.host import ClusterNetwork
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from common import log_handler, LOG_LEVEL, \
@@ -68,12 +69,12 @@ class ClusterOnKubernetes(ClusterBase):
                 return None
 
             # check if the port sources is enough.
-            if len(cluster_network.get("orderer",[])) > CA_PORTS_UPPER_LIMIT:
+            if len(cluster_network.get("orderer",{}).get("peers",[])) > CA_PORTS_UPPER_LIMIT:
                 logger.error(" the number of orderer nodes is over {}.".format(CA_PORTS_UPPER_LIMIT))
                 return None
 
             if len(cluster_network.get("application", [])) > ORDERER_PORTS_UPPER_LIMIT:
-                logger.error (" the number of organization is over {}.".format(ORDERER_PORTS_UPPER_LIMIT))
+                logger.error(" the number of organization is over {}.".format(ORDERER_PORTS_UPPER_LIMIT))
                 return None
 
             port_num = 0
@@ -82,7 +83,7 @@ class ClusterOnKubernetes(ClusterBase):
 
             peer_ports_max = CLUSTER_PORT_STEP - CA_PORTS_UPPER_LIMIT - ORDERER_PORTS_UPPER_LIMIT
             if port_num > peer_ports_max:
-                logger.error (" the number of peer ports is over {}.".format(peer_ports_max))
+                logger.error(" the number of peer ports is over {}.".format(peer_ports_max))
                 return None
 
             if port_num > CLUSTER_PORT_STEP:
@@ -108,7 +109,6 @@ class ClusterOnKubernetes(ClusterBase):
                 deployment.save();
                 return ;
 
-
             containers = operation.deploy_cluster(cluster_name,
                                                 ports_index,
                                                 external_port_start,
@@ -119,9 +119,10 @@ class ClusterOnKubernetes(ClusterBase):
         except Exception as e:
             logger.error("Failed to create Kubernetes Cluster: {}".format(e))
             return None
+
         return containers
 
-    def delete(self, cid, worker_api, config):
+    def delete(self, cid, worker_api, config, delete_config=True):
         try:
             cluster, cluster_name, kube_config, ports_index, external_port_start,\
                 nfsServer_ip, consensus = self._get_cluster_info(cid, config)
@@ -129,7 +130,7 @@ class ClusterOnKubernetes(ClusterBase):
             operation = K8sClusterOperation(kube_config)
             cluster_name = self.trim_cluster_name(cluster_name)
             deployments = DeploymentModel.objects(cluster=cluster)
-            operation.delete_cluster(cluster_name, deployments)
+            operation.delete_cluster(cluster_name, deployments, delete_config)
 
             # only delete the deployments during deleting cluster
             for deployment in deployments:
@@ -273,14 +274,14 @@ class ClusterOnKubernetes(ClusterBase):
 
             map_ports = dict((service.name, service.port) for service in ServicePort
                               .objects(cluster=cluster))
-            ports = [value for value in map_ports.values ()]
+            ports = [value for value in map_ports.values()]
 
+            current_config = ClusterNetwork.objects.get(cluster=cluster, version=cluster.version)
             delete_list, new_list, run_upadte_config = \
-                operation.update_config(cluster_name, cluster.network, cluster_config)
+                operation.update_config(cluster_name, current_config.network, cluster_config)
 
             for id in delete_list:
-                map_ports = self._release_port(map_ports, str(id).replace ("-", "_"))
-
+                map_ports = self._release_port(map_ports, str(id).replace("-", "_"))
 
             for new_element in new_list:
                 param = self._find_free_port(external_port_start,
@@ -319,7 +320,7 @@ class ClusterOnKubernetes(ClusterBase):
                                               _save);
                 else:
                     logger.warning("type: {} is not supported to "
-                                    "add into cluster".format (element['type']));
+                                    "add into cluster".format(element['type']));
                     return None;
 
             # run the config update

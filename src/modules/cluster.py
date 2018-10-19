@@ -15,6 +15,8 @@ import socket
 import requests
 from pymongo.collection import ReturnDocument
 
+from modules.models.host import ClusterNetwork
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from agent import get_swarm_node_ip, KubernetesHost
@@ -109,6 +111,23 @@ class ClusterHandler(object):
             logger.warning("No cluster found with id=" + id)
             return {}
         return self._schema(cluster)
+
+    def get_network(self, id, version):
+        """Get the network config of the cluster
+
+        :param id: id of the doc
+        :param version: the network version
+        :return: common.network
+        """
+
+        try:
+            cluster = ClusterModel.objects.get(id=id)
+            networkDoc = ClusterNetwork.objects.get(cluster=cluster, version=version)
+            return networkDoc.network
+
+        except Exception as e:
+            logger.warning("Get Network : {}".format(e))
+            return None
 
     def gen_service_urls(self, cid, peer_ports, ca_ports, orderer_ports,
                          explorer_ports):
@@ -254,6 +273,15 @@ class ClusterHandler(object):
                                        cluster=cluster)
             service_port.save()
 
+        # save the network to db
+        network = config.get("network", None)
+        if network is not None:
+            cluster_network = ClusterNetwork()
+            cluster_network.network = network
+            cluster_network.cluster = cluster
+            cluster_network.version = 0
+            cluster_network.save()
+
         # update api_url, container, user_id and status
         self.db_update_one(
             {"id": cid},
@@ -302,10 +330,10 @@ class ClusterHandler(object):
 
         clusters_exists = ClusterModel.objects (host=worker)
 
-        #TODO start the part in no debug
-        # if clusters_exists.count() >= worker.capacity:
-        #     logger.warning("host {} is already full".format(host_id))
-        #     return None
+        #start the part in no debug
+        if clusters_exists.count() >= worker.capacity:
+            logger.warning("host {} is already full".format(host_id))
+            return None
 
         peer_num = int(config.get_data().get("size", 4))
         ca_num = 2 if peer_num > 1 else 1
@@ -341,7 +369,6 @@ class ClusterHandler(object):
 
         network_type = config['network_type']
 
-
         net = {  # net is a blockchain network instance
             'id': cid,
             'name': name,
@@ -354,12 +381,15 @@ class ClusterHandler(object):
             'service_url': {},  # e.g., {rest: xxx:7050, grpc: xxx:7051}
             'external_port_start': external_port_start,
         }
+
         net.update(config.get_data())
+        net.pop("network")
 
         # try to start one cluster at the host
         cluster = ClusterModel(**net)
         cluster.host = worker
         cluster.save()
+
         # start cluster creation asynchronously for better user experience.
         t = Thread(target=self._create_cluster, args=(cluster, cid,
                                                       mapped_ports, worker,
@@ -372,8 +402,8 @@ class ClusterHandler(object):
 
 
     # add one element to one existence cluster
-    def _update_cluster(self, cluster, cid, worker, element, user_id):
-        containers = self.cluster_agents[worker.type].update(cid, element, user_id)
+    def _update_cluster(self, cluster, cid, worker, new_network, user_id):
+        containers = self.cluster_agents[worker.type].update(cid, new_network, user_id)
 
         # update cluster containers and service urls info
         if containers is None :
@@ -412,7 +442,14 @@ class ClusterHandler(object):
                     service_port = ServicePort(name=k, ip=ip,
                                                 port=int(v.split(":")[1]),
                                                 cluster=cluster)
-                    service_port.save()
+                    service_port.save();
+
+        # save the last network version
+        new_network_doc = ClusterNetwork()
+        new_network_doc.version = cluster.version + 1
+        new_network_doc.cluster = cluster
+        new_network_doc.network = new_network
+        new_network_doc.save()
 
         # update api_url, container, user_id and status
         self.db_update_one(
@@ -421,13 +458,14 @@ class ClusterHandler(object):
                 "user_id": user_id,
                 'api_url': service_urls.get('rest', ""),
                 'service_url': service_urls,
-                'status': NETWORK_STATUS_RUNNING
+                'status': NETWORK_STATUS_RUNNING,
+                'version': cluster.version + 1
             }
         )
         return True
 
 
-    def update(self, cluster_id, host_id, element, user_id=""):
+    def update(self, cluster_id, host_id, new_network, user_id=""):
         """ add one element to one existence cluster
             :param cluster_id: the cluster id must be created
             :param host_id: which the cluster belonged to
@@ -437,34 +475,35 @@ class ClusterHandler(object):
 
         logger.info ("Add node to cluster={}, host_id={}, org_id={}, element={}"
                      "user_id={}".format (cluster_id, host_id, cluster_id,
-                                          element, user_id))
+                                          new_network, user_id))
         #check host_id and cluster_id
         worker = self.host_handler.get_active_host_by_id(host_id)
         if not worker:
-            logger.error ("Cannot find available host to create new network")
+            logger.error("Cannot find available host to create new network")
             return False
 
         cluster = ClusterModel.objects.get(id=cluster_id)
         if cluster is None:
-            logger.error ("the cluster id: {} is not exist".format(cluster_id))
+            logger.error("the cluster id: {} is not exist".format(cluster_id))
             return False
 
-        if cluster.host.id!= host_id:
-            logger.error ("the cluster id: {} is not belong to {}".format(cluster_id, host_id))
+        if cluster.host.id != host_id:
+            logger.error("the cluster id: {} is not belong to {}".format(cluster_id, host_id))
             return False
 
         if cluster.status != NETWORK_STATUS_RUNNING:
-            logger.error ("the cluster id: {} is not runnig to {}".format(cluster_id, host_id))
+            logger.error("the cluster id: {} is not runnig to {}".format(cluster_id, host_id))
             return False
 
         #TODO: prepare ports, but k8s do not need to do here.
         if worker.type == WORKER_TYPE_K8S:
-            return self._update_cluster(cluster, cluster_id, worker, element, user_id)
+            return self._update_cluster(cluster, cluster_id, worker, new_network, user_id)
         else:
             return False
 
 
-    def delete(self, id, record=False, forced=False):
+
+    def delete(self, id, record=False, forced=False, delete_config=True):
         """ Delete a cluster instance
 
         Clean containers, remove db entry. Only operate on active host.
@@ -534,8 +573,12 @@ class ClusterHandler(object):
             "env": cluster.env
         })
 
-        delete_result = self.cluster_agents[h.type].delete(id, worker_api,
-                                                           config)
+        if h.type == "kubernetes":
+            delete_result = self.cluster_agents[h.type].delete(id, worker_api,
+                                                               config, delete_config)
+        else:
+            delete_result = self.cluster_agents[h.type].delete(id, worker_api,
+                                                               config)
         if not delete_result:
             logger.warning("Error to run compose clean work")
             cluster.update(set__user_id=user_id, upsert=True)
@@ -824,7 +867,14 @@ class ClusterHandler(object):
         logger.debug("Run recreate_work in background thread")
         cluster_name, host_id, network_type, \
             = c.get("name"), c.get("host_id"), c.get("network_type")
-        if not self.delete(cluster_id, record=record, forced=True):
+
+        # get the init network config
+        network = self.get_network(cluster_id, 0)
+        if network is None:
+            return False
+
+        if not self.delete(cluster_id, record=record,
+                           forced=True, delete_config=False):
             logger.warning("Delete cluster failed with id=" + cluster_id)
             return False
         network_type = c.get('network_type')
@@ -844,6 +894,8 @@ class ClusterHandler(object):
             config.network_type = NETWORK_TYPE_FABRIC_V1_2
         else:
             return False
+
+        config.network(network)
         if not self.create(name=cluster_name, host_id=host_id, config=config):
             logger.warning("Fail to recreate cluster {}".format(cluster_name))
             return False

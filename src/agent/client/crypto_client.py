@@ -13,7 +13,7 @@ cry_services_url = "http://127.0.0.1:9906"
 def init_fabric_network(envelop):
     try:
         data = json.dumps(envelop, default=lambda x: x.__dict__)
-        cry_init_url = cry_services_url + "/v1_1/init"
+        cry_init_url = cry_services_url + "/v1_1/init?recreate=false"
         cry_init_request = urllib.request.Request(cry_init_url, data=bytes(data.encode()), method="POST")
         respond = urllib.request.urlopen(cry_init_request)
         urllib.request.urlcleanup()
@@ -36,7 +36,7 @@ def update_fabric_network(update):
 
 def fetch_fabric_network(cluster_id):
     try:
-        cry_fetch_url = cry_services_url + "/v1_1/fetch?cluster=" + cluster_id
+        cry_fetch_url = cry_services_url + "/v1_1/fetch/network?cluster=" + cluster_id
         cry_fetch_request = urllib.request.Request(cry_fetch_url,  method="GET")
         respond = urllib.request.urlopen(cry_fetch_request)
 

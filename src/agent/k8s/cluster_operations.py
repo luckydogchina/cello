@@ -107,13 +107,16 @@ class K8sClusterOperation():
     def _delete_config_file(self, cluster_name):
         try:
             cluster_path = os.path.join('/cello', cluster_name)
+            #fsatat = os.fstat(cluster_path)
             shutil.rmtree(cluster_path)
+        except FileNotFoundError:
+            return
         except Exception as e:
             error_msg = (
                 "Failded to delete cluster files in NFS Server due "
                 "to incorrect parameters."
             )
-            logger.error("Creating Kubernetes cluster error msg: {}".format(e))
+            logger.error("Deleteing Kubernetes cluster error msg: {}".format(e))
             raise Exception(error_msg)
 
     #transfer the config file to the k8s serveice.
@@ -707,7 +710,7 @@ class K8sClusterOperation():
                 time.sleep(3)
 
         # deploy the orderers
-        orderer_org = cluster_config.get("orderer",{})
+        orderer_org = deepcopy(cluster_config.get("orderer",{}))
         orderer_org["org_name"] = "ordererorg"
 
         # deploy orderer org pv
@@ -756,6 +759,23 @@ class K8sClusterOperation():
             time.sleep(3)
 
         return
+
+    def check_pvs(self, documents):
+        mapping_list = []
+        for doc in documents:
+            if doc.kind == "PersistentVolume":
+                mapping_list.append(doc.name)
+
+        try:
+            response = self.corev1client.list_persistent_volume()
+            for item in response.items:
+                if item.metadata.name in mapping_list:
+                    return False
+
+            return True
+
+        except client.rest.ApiException as e:
+            logger.error("Exception raised in list pv: %s\n" % e)
 
     def deploy_cluster(self, cluster_name, ports_index,
                        external_port_start, nfsServer_ip,
@@ -812,16 +832,21 @@ class K8sClusterOperation():
             self._delete_k8s_resource(deployment.data)
             time.sleep(3)
 
-    def delete_cluster(self, cluster_name, docs_deployment):
-        respond = crypto_client.delete_fabric_network (cluster_name)
-        if respond.code != 200:
-            raise respond
-
+    def delete_cluster(self, cluster_name, docs_deployment, delete_config):
         self._delete_cluster_resource(docs_deployment)
         time.sleep(2)
 
+        while not self.check_pvs(docs_deployment):
+            time.sleep (3)
+
         self._delete_config_file(cluster_name)
         time.sleep(5)
+
+        if delete_config:
+            respond = crypto_client.delete_fabric_network(cluster_name)
+            if respond.code != 200:
+                logger.error("delete config in crypot server : {}".format(respond))
+                return False
 
         return True
 

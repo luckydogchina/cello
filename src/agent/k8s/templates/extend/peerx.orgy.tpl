@@ -46,7 +46,7 @@ spec:
         - name: CORE_LOGGING_LEVEL
           value: "DEBUG"
         - name: CORE_PEER_TLS_ENABLED
-          value: "false"
+          value: "true"
         - name: CORE_PEER_GOSSIP_USELEADERELECTION
           value: "true"
         - name: CORE_PEER_GOSSIP_ORGLEADER
@@ -60,7 +60,7 @@ spec:
        # - name: CORE_PEER_CHAINCODELISTENADDRESS
        #   value: {{peerId}}-{{organizationId}}:7052
         - name: CORE_PEER_LOCALMSPID
-          value: {{organizationId}}MSP
+          value: {{mspId}}
         - name: CORE_PEER_GOSSIP_EXTERNALENDPOINT
           value: {{peerId}}-{{organizationId}}:7051
         - name: CORE_CHAINCODE_PEERADDRESS

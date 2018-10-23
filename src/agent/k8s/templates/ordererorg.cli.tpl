@@ -47,7 +47,7 @@ spec:
           image:  hyperledger/fabric-tools:amd64-1.2.0
           env:
           - name: CORE_PEER_TLS_ENABLED
-            value: "false"
+            value: "true"
           - name: CORE_PEER_TLS_CERT_FILE
             value: /etc/hyperledger/fabric/tls/server.crt
           - name: CORE_PEER_TLS_KEY_FILE

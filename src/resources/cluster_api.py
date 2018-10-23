@@ -146,13 +146,38 @@ def cluster_release(r):
     :return:
     """
     cluster_id = request_get(r, "cluster_id")
-    if not cluster_id:
-        logger.warning("No cluster_id is given")
-        return make_fail_resp("No cluster_id is given")
-    if cluster_handler.release_cluster(cluster_id):
-        return make_ok_resp()
+    user_id = request_get(r, "user_id")
+    un_reset = request_get(r, "un_reset")
 
-    return make_fail_resp("cluster release failed")
+    if not user_id and not cluster_id:
+        error_msg = "cluster_release without id"
+        logger.warning(error_msg)
+        return make_fail_resp(error=error_msg, data=r.args)
+    else:
+        result = None
+        if un_reset:
+            if cluster_id:
+                result = cluster_handler.release_cluster(cluster_id=cluster_id)
+            elif user_id:
+                result = cluster_handler.release_cluster_for_user(user_id=user_id)
+            if not result:
+                error_msg = "cluster_release failed user_id={} cluster_id={}". \
+                    format(user_id, cluster_id)
+                logger.warning(error_msg)
+                data = {
+                    "user_id": user_id,
+                    "cluster_id": cluster_id,
+                }
+                return make_fail_resp(error=error_msg, data=data)
+            else:
+                return make_ok_resp()
+        else:
+            if cluster_id:
+                if cluster_handler.release_cluster_not_reset(cluster_id):
+                    return make_ok_resp()
+
+            return make_fail_resp(error="not release")
+
 
 
 @front_rest_v2.route('/cluster_op', methods=['GET', 'POST'])
@@ -337,7 +362,7 @@ def cluster_list():
     logger.info(f)
     col_name = f.get("state", "active")
     result = cluster_handler.list(filter_data=f, col_name=col_name)
-    logger.error(result)
+    logger.info(result)
     return make_ok_resp(data=result)
 
 

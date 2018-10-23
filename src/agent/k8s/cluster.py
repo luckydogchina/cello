@@ -4,6 +4,7 @@
 import logging
 import os
 import sys
+import time
 
 from agent import K8sClusterOperation
 from agent import KubernetesOperation
@@ -184,8 +185,7 @@ class ClusterOnKubernetes(ClusterBase):
             if not containers:
                 logger.warning("failed to start cluster={}, stop it again."
                                .format(cluster_name))
-                operation.stop_cluster(cluster_name, ports_index,
-                                       nfsServer_ip, consensus)
+                operation.stop_cluster(cluster_name, deployments)
                 return False
 
             service_urls = self.get_services_urls(name)
@@ -214,7 +214,7 @@ class ClusterOnKubernetes(ClusterBase):
             operation = K8sClusterOperation(kube_config)
             #cluster_name = self.trim_cluster_name(cluster_name)
             deployments = DeploymentModel.objects(cluster=cluster)
-            operation.stop_cluster(deployments)
+            operation.stop_cluster(cluster_name, deployments)
 
             cluster_ports = ServicePort.objects(cluster=cluster)
             for ports in cluster_ports:
@@ -296,45 +296,52 @@ class ClusterOnKubernetes(ClusterBase):
             def _save(data):
                 if data is None:
                     return;
-                deployment = DeploymentModel(id=data.get ('id', ""),
-                                              kind=data.get ('kind', ""),
-                                              name=data.get ('name', ""),
-                                              data=data.get ('data', {}),
-                                              cluster=cluster);
-
+                deployment = DeploymentModel(id=data.get('id', ""),
+                                             kind=data.get('kind', ""),
+                                             name=data.get('name', ""),
+                                             data=data.get('data', {}),
+                                             cluster=cluster);
                 deployment.save();
                 return;
 
-            containers = {};
+            is_ok = True;
             for element in new_list:
                 type = element.get('type');
                 params = element.get('params');
+                type_dict = [NODETYPE_PEER, NODETYPE_CA, NODETYPE_ORDERER, ELEMENT_PVC]
 
-                type_dict = [NODETYPE_PEER, NODETYPE_CA, NODETYPE_ORDERER]
                 if type in type_dict:
-                    containers = operation.deploy_node(cluster_name, params, type, _save);
-                elif type == ELEMENT_PVC:
-                    operation.deploy_org_pvc(cluster_name,
-                                              nfs_server_ip,
-                                              params,
-                                              _save);
+
+                    if type == ELEMENT_PVC:
+                        containers = operation.deploy_org_pvc(cluster_name,
+                                                  nfs_server_ip,
+                                                  params,
+                                                  _save);
+                    else:
+                        containers = operation.deploy_node(cluster_name, params, type, _save);
+
+                    if containers is None:
+                        is_ok= False; break
                 else:
                     logger.warning("type: {} is not supported to "
                                     "add into cluster".format(element['type']));
-                    return None;
+                    is_ok = False; break
 
-            # run the config update
-            if not run_upadte_config():
-                return None
+            if not is_ok:
+                delete_list = operation.new_to_delete(cluster_name, new_list)
+            else:
+                # run the config update
+                if not run_upadte_config():
+                    delete_list = operation.new_to_delete(cluster_name, new_list)
+                    is_ok = False
 
             # delete the elements
             deployments = []
             for id in delete_list:
                 deployment = DeploymentModel.objects(cluster=cluster, name=id)
-
+                # deployments.append(deployment)
                 for item in deployment:
                     deployments.append(item)
-
 
             deployments = operation.pod_replica_delete_list(cluster_name,
                                                    delete_list,
@@ -344,12 +351,31 @@ class ClusterOnKubernetes(ClusterBase):
             for deployment in deployments:
                 deployment.delete()
 
+            new_list = operation.new_to_delete(cluster_name, new_list)
+            new_list = list(filter(lambda x: 'pv' not in x and 'pvc' not in x, new_list))
+            if is_ok:
+                return is_ok, self._check_containers(operation, cluster_name, new_list, delete_list)
+            else:
+                return is_ok, None
+
         except Exception as e:
-            logger.error ("Failed to create Kubernetes Cluster: {}".format(e));
-            return None;
+            logger.error("Failed to create Kubernetes Cluster: {}".format(e));
+            return False, None;
 
-        return containers;
+    def _check_containers(self, operation, cluster_name, new_list, delete_list):
+        while True:
+            logger.info("checking the update... ...")
+            containers = operation.get_cluster_container(cluster_name)
+            # container_names = [k for k, v in containers]
+            no_deleted = list(filter(lambda x: True in [x in k for k, v in containers.items()], delete_list))
+            res = len(no_deleted)
+            if res == 0:
+                res = len(list(filter(lambda x: True in [x in k for k, v in containers.items()], new_list)))
+                if res == len(new_list):
+                    break
+            time.sleep(3)
 
+        return containers
 
     def restart(self, name, worker_api, mapped_ports, log_type, log_level,
                 log_server, config):

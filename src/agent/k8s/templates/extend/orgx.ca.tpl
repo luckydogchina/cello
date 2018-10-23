@@ -23,7 +23,7 @@ spec:
          - name:  FABRIC_CA_SERVER_CA_NAME
            value: ca
          - name:  FABRIC_CA_SERVER_TLS_ENABLED
-           value: "false"
+           value: "true"
          - name:  FABRIC_CA_SERVER_TLS_CERTFILE
            value: /etc/hyperledger/fabric-ca-server-config/ca.{{domain}}-cert.pem
          - name:  FABRIC_CA_SERVER_TLS_KEYFILE

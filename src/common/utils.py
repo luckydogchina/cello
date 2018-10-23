@@ -123,6 +123,7 @@ NETWORK_STATUS_CREATING = 'creating'  # just in-creation
 NETWORK_STATUS_RUNNING = 'running'  # running now, waiting for health check
 NETWORK_STATUS_DELETING = 'deleting'  # network is in deleting
 NETWORK_STATUS_STOPPED = 'stopped'  # network is stopped
+NETWORK_STATUS_UPDATING = 'updating'
 
 K8S_CRED_TYPE = {
     'account': '0',

@@ -32,7 +32,7 @@ spec:
         - name: ORDERER_GENERAL_LOCALMSPDIR
           value: /var/hyperledger/orderer/msp
         - name: ORDERER_GENERAL_TLS_ENABLED
-          value: "false"
+          value: "true"
         - name: ORDERER_GENERAL_TLS_PRIVATEKEY
           value: /var/hyperledger/orderer/tls/server.key
         - name: ORDERER_GENERAL_TLS_CERTIFICATE

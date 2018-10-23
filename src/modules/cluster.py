@@ -21,7 +21,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from agent import get_swarm_node_ip, KubernetesHost
 
-from common import db, log_handler, LOG_LEVEL, utils
+from common import db, log_handler, LOG_LEVEL, utils, NETWORK_STATUS_UPDATING
 from common import CLUSTER_PORT_START, CLUSTER_PORT_STEP, \
     NETWORK_TYPE_FABRIC_PRE_V1, NETWORK_TYPE_FABRIC_V1, \
     CONSENSUS_PLUGINS_FABRIC_V1, \
@@ -400,11 +400,20 @@ class ClusterHandler(object):
         t.start()
         return cid
 
-
     # add one element to one existence cluster
     def _update_cluster(self, cluster, cid, worker, new_network, user_id):
-        containers = self.cluster_agents[worker.type].update(cid, new_network, user_id)
+        is_ok ,containers = self.cluster_agents[worker.type].update(cid, new_network, user_id)
 
+        if not is_ok:
+            self.db_update_one(
+                {"id": cid},
+                {
+                    "user_id": user_id,
+                    'status': NETWORK_STATUS_RUNNING,
+                }
+            )
+            logger.error("update the cluster failure")
+            return False
         # update cluster containers and service urls info
         if containers is None :
             logger.warning("failed to add element to cluster={}"
@@ -464,7 +473,6 @@ class ClusterHandler(object):
         )
         return True
 
-
     def update(self, cluster_id, host_id, new_network, user_id=""):
         """ add one element to one existence cluster
             :param cluster_id: the cluster id must be created
@@ -497,11 +505,16 @@ class ClusterHandler(object):
 
         #TODO: prepare ports, but k8s do not need to do here.
         if worker.type == WORKER_TYPE_K8S:
+            self.db_update_one(
+                {"id": cluster_id},
+                {
+                    "user_id": user_id,
+                    'status': NETWORK_STATUS_UPDATING,
+                }
+            )
             return self._update_cluster(cluster, cluster_id, worker, new_network, user_id)
         else:
             return False
-
-
 
     def delete(self, id, record=False, forced=False, delete_config=True):
         """ Delete a cluster instance
@@ -610,9 +623,16 @@ class ClusterHandler(object):
         :return: serialized cluster or None
         """
         if not allow_multiple:  # check if already having one
-            filt = {"user_id": user_id, "release_ts": "", "health": "OK"}
-            filt.update(condition)
-            c = self.col_active.find_one(filt)
+            # filt = {"user_id": user_id, "release_ts": None, "health": "OK"}
+            # filt.update(condition)
+            # c = self.col_active.find_one(filt)
+            c = ClusterModel. \
+                objects(user_id=user_id,
+                        network_type__icontains=condition.get("apply_type",
+                                                              "fabric"),
+                        size=condition.get("size", 0),
+                        status=NETWORK_STATUS_RUNNING,
+                        health="OK").first()
             if c:
                 logger.debug("Already assigned cluster for " + user_id)
                 return self._schema(c)
@@ -627,7 +647,8 @@ class ClusterHandler(object):
         if cluster:
             cluster.update(upsert=True, **{
                 "user_id": user_id,
-                "apply_ts": datetime.datetime.now()
+                "apply_ts": datetime.datetime.now(),
+                # "release_ts": datetime.datetime.time()
             })
             logger.info("Now have cluster {} at {} for user {}".format(
                 cluster.id, cluster.host.id, user_id))
@@ -672,6 +693,21 @@ class ClusterHandler(object):
             return False
 
         return self.reset(cluster_id, record)
+
+    def release_cluster_not_reset(self, cluster_id):
+        c = self.db_update_one(
+            {"id": cluster_id},
+            {"user_id": "",
+             "apply_ts": "",
+             "release_ts": ""})
+        if not c:
+            logger.warning("No cluster find for released with id {}".format(
+                cluster_id))
+            return True
+        if not c.release_ts:  # not have one
+            logger.warning("No cluster can be released for id {}".format(
+                cluster_id))
+            return False
 
     def start(self, cluster_id):
         """Start a cluster

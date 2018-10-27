@@ -34,6 +34,8 @@ spec:
         - name: KAFKA_ZOOKEEPER_CONNECT
           value: "zookeeper0:2181,zookeeper1:2181,zookeeper2:2181"
         - name: KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS
+          value: "60000"
+        - name: KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS
           value: "36000"
         - name: KAFKA_ADVERTISED_HOST_NAME
           value: "kafka0"
@@ -77,6 +79,8 @@ spec:
           value: "zookeeper0:2181,zookeeper1:2181,zookeeper2:2181"
         - name: KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS
           value: "36000"
+        - name: KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS
+          value: "36000"
         - name: KAFKA_ADVERTISED_HOST_NAME
           value: "kafka1"
         ports:
@@ -118,6 +122,8 @@ spec:
         - name: KAFKA_ZOOKEEPER_CONNECT
           value: "zookeeper0:2181,zookeeper1:2181,zookeeper2:2181"
         - name: KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS
+          value: "36000"
+        - name: KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS
           value: "36000"
         - name: KAFKA_ADVERTISED_HOST_NAME
           value: "kafka2"

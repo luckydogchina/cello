@@ -98,6 +98,7 @@ def cluster_apply(r):
 
     consensus_plugin = request_get(r, "consensus_plugin")
     consensus_mode = request_get(r, "consensus_mode")
+    cluster_name = request_get(r, "name")
     cluster_size = int(request_get(r, "size") or -1)
     if consensus_plugin:
         if consensus_plugin not in CONSENSUS_PLUGINS_FABRIC_V1:
@@ -122,7 +123,8 @@ def cluster_apply(r):
 
     logger.debug("condition={}".format(condition))
     c = cluster_handler.apply_cluster(user_id=user_id, condition=condition,
-                                      allow_multiple=allow_multiple)
+                                      allow_multiple=allow_multiple,
+                                      cluster_name=cluster_name)
     if not c:
         logger.warning("cluster_apply failed")
         return make_fail_resp("No available res for {}".format(user_id))
@@ -155,7 +157,7 @@ def cluster_release(r):
         return make_fail_resp(error=error_msg, data=r.args)
     else:
         result = None
-        if un_reset:
+        if un_reset is None:
             if cluster_id:
                 result = cluster_handler.release_cluster(cluster_id=cluster_id)
             elif user_id:

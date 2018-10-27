@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: couchdb
-        image: hyperledger/fabric-couchdb:amd64-1.2.0
+        image: hyperledger/fabric-couchdb:x86_64-0.4.6
         ports:
          - containerPort: 5984
       - name: {{peerId}}-{{organizationId}}
@@ -66,7 +66,7 @@ spec:
         - name: CORE_CHAINCODE_PEERADDRESS
           value: {{peerId}}-{{organizationId}}:7051
         - name: CORE_CHAINCODE_STARTUPTIMEOUT
-          value: "30s"
+          value: "300s"
         - name: CORE_CHAINCODE_LOGGING_LEVEL
           value: "DEBUG"
         workingDir: /opt/gopath/src/github.com/hyperledger/fabric/peer

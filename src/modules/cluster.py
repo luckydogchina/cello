@@ -65,8 +65,8 @@ class ClusterHandler(object):
     """
 
     def __init__(self):
-        self.col_active = db["cluster_active"]
-        self.col_released = db["cluster_released"]
+        self.col_active = db["cluster"]
+        self.col_released = db["cluster"]
         self.host_handler = host.host_handler
         self.cluster_agents = {
             'docker': ClusterOnDocker(),
@@ -323,12 +323,21 @@ class ClusterHandler(object):
                     "user_id={}".format(name, host_id, config.get_data(),
                                         start_port, user_id))
 
+        # check the cluster name
+        clusters_exists = ClusterModel.objects()
+        is_exist = len(list(filter(lambda x: x.name == name, clusters_exists)))
+        if is_exist:
+            logger.error("the cluster {} has been existed".format(name))
+            return None
+
+
+        # check the capacity
         worker = self.host_handler.get_active_host_by_id(host_id)
         if not worker:
             logger.error("Cannot find available host to create new network")
             return None
 
-        clusters_exists = ClusterModel.objects (host=worker)
+        clusters_exists = ClusterModel.objects(host=worker)
 
         #start the part in no debug
         if clusters_exists.count() >= worker.capacity:
@@ -614,36 +623,53 @@ class ClusterHandler(object):
         self.col_released.find_one_and_delete({"id": id})
         return True
 
-    def apply_cluster(self, user_id, condition={}, allow_multiple=False):
+    def apply_cluster(self, user_id,  condition={}, allow_multiple=False, cluster_name=None):
         """ Apply a cluster for a user
 
         :param user_id: which user will apply the cluster
         :param condition: the filter to select
         :param allow_multiple: Allow multiple chain for each tenant
+        :param cluster_name: the name of the applying cluster
         :return: serialized cluster or None
         """
         if not allow_multiple:  # check if already having one
             # filt = {"user_id": user_id, "release_ts": None, "health": "OK"}
             # filt.update(condition)
             # c = self.col_active.find_one(filt)
-            c = ClusterModel. \
-                objects(user_id=user_id,
+            if cluster_name is not None:
+                c = ClusterModel. \
+                    objects(user_id=user_id,
+                            name=cluster_name,
+                            status=NETWORK_STATUS_RUNNING,
+                            health="OK").first()
+            else:
+                c = ClusterModel. \
+                    objects(user_id=user_id,
+                            network_type__icontains=condition.get("apply_type",
+                                                                  "fabric"),
+                            size=condition.get("size", 0),
+                            status=NETWORK_STATUS_RUNNING,
+                            health="OK").first()
+
+            if c:
+                logger.debug("Already assigned cluster for " + user_id)
+                return self._schema(c)
+
+        logger.debug("Try find available cluster for " + user_id)
+        if cluster_name is not None:
+            cluster = ClusterModel. \
+                objects(user_id="",
+                        name=cluster_name,
+                        status=NETWORK_STATUS_RUNNING,
+                        health="OK").first()
+        else:
+            cluster = ClusterModel.\
+                objects(user_id="",
                         network_type__icontains=condition.get("apply_type",
                                                               "fabric"),
                         size=condition.get("size", 0),
                         status=NETWORK_STATUS_RUNNING,
                         health="OK").first()
-            if c:
-                logger.debug("Already assigned cluster for " + user_id)
-                return self._schema(c)
-        logger.debug("Try find available cluster for " + user_id)
-        cluster = ClusterModel.\
-            objects(user_id="",
-                    network_type__icontains=condition.get("apply_type",
-                                                          "fabric"),
-                    size=condition.get("size", 0),
-                    status=NETWORK_STATUS_RUNNING,
-                    health="OK").first()
         if cluster:
             cluster.update(upsert=True, **{
                 "user_id": user_id,
@@ -663,8 +689,8 @@ class ClusterHandler(object):
         :return: True or False
         """
         logger.debug("release clusters for user_id={}".format(user_id))
-        c = self.col_active.find({"user_id": user_id, "release_ts": ""})
-        cluster_ids = list(map(lambda x: x.get("id"), c))
+        c = self.col_active.find({"user_id": user_id, "release_ts": None})
+        cluster_ids = list(c.get('_id') for c in c)
         logger.debug("clusters for user {}={}".format(user_id, cluster_ids))
         result = True
         for cid in cluster_ids:
@@ -698,16 +724,16 @@ class ClusterHandler(object):
         c = self.db_update_one(
             {"id": cluster_id},
             {"user_id": "",
-             "apply_ts": "",
-             "release_ts": ""})
+             "apply_ts": None,
+             "release_ts": None})
         if not c:
             logger.warning("No cluster find for released with id {}".format(
                 cluster_id))
             return True
-        if not c.release_ts:  # not have one
-            logger.warning("No cluster can be released for id {}".format(
-                cluster_id))
-            return False
+        # if not c.release_ts:  # not have one
+        #     logger.warning("No cluster can be released for id {}".format(
+        #         cluster_id))
+        #     return False
 
     def start(self, cluster_id):
         """Start a cluster

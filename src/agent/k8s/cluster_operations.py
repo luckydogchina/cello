@@ -130,33 +130,33 @@ class K8sClusterOperation():
 
         if ("namespace" not in file_name):
             if "peer" in file_name:
-                eventPort = cluster_params[file_name].get("eventPort")
-                chaincodePort = cluster_params[file_name].get("chaincodePort")
-                nodePort = cluster_params[file_name].get("nodePort")
+                eventPort = cluster_params[file_name].get("eventPort", "")
+                chaincodePort = cluster_params[file_name].get("chaincodePort", "")
+                nodePort = cluster_params[file_name].get("nodePort", "")
                 if "x" in file_name and "y" in file_name:
-                    peerId = cluster_params[file_name].get("peerId")
-                    orgId = cluster_params[file_name].get("organizationId")
+                    peerId = cluster_params[file_name].get("peerId", "")
+                    orgId = cluster_params[file_name].get("organizationId", "")
                     mspId = orgId + 'MSP'
                     orgId = str(orgId).lower()
-                    domain = cluster_params[file_name].get ("domain")
+                    domain = cluster_params[file_name].get("domain", "")
             elif "x" in file_name and "orderer" in file_name:
-                orgId = cluster_params[file_name].get("organizationId")
-                ordererId = cluster_params[file_name].get("ordererId")
+                orgId = cluster_params[file_name].get("organizationId", "")
+                ordererId = cluster_params[file_name].get("ordererId", "")
                 orgId = str(orgId).lower()
-                nodePort = cluster_params[file_name].get("nodePort")
-                domain = cluster_params[file_name].get("domain")
+                nodePort = cluster_params[file_name].get("nodePort", "")
+                domain = cluster_params[file_name].get("domain", "")
             elif "x" in file_name and "ca" in file_name:
-                orgId = cluster_params[file_name].get("organizationId")
+                orgId = cluster_params[file_name].get("organizationId", "")
                 orgId = str(orgId).lower()
-                nodePort = cluster_params[file_name].get("nodePort")
-                domain = cluster_params[file_name].get("domain")
-                prvKey = cluster_params[file_name].get("prvKey")
+                nodePort = cluster_params[file_name].get("nodePort", "")
+                domain = cluster_params[file_name].get("domain", "")
+                prvKey = cluster_params[file_name].get("prvKey", "")
             elif "x" in file_name and "pvc" in file_name:
-                orgId = cluster_params[file_name].get("organizationId")
+                orgId = cluster_params[file_name].get("organizationId", "")
                 orgId = str(orgId).lower()
-                domain = cluster_params[file_name].get("domain")
+                domain = cluster_params[file_name].get("domain", "")
             else:
-                domain = cluster_params[file_name].get("domain")
+                domain = cluster_params[file_name].get("domain", "")
         #else:
            # domain = cluster_params[file_name].get("domain")
 
@@ -264,10 +264,16 @@ class K8sClusterOperation():
             if pod_ip is None:
                 continue
 
+            name_list = ['name', 'peer-id', 'orderer-id']
+            for e in name_list:
+                name = pod.metadata.labels.get(e, None)
+                if name is not None:
+                    break
+
             pod_id = "{}_{}_{}_{}".format (pod.metadata.labels.get('app', ""),
                                            pod.metadata.labels.get('org', ""),
                                            pod.metadata.labels.get('role', ""),
-                                           pod.metadata.labels.get('name', ""), )
+                                           name, )
             pods[pod_id] = {'pod_name': pod.metadata.name,
                             'node_name': pod.spec.node_name,
                             'labels': pod.metadata.labels,
@@ -292,10 +298,16 @@ class K8sClusterOperation():
                     or (service['selector'].get('app', None) is None):
                 continue
 
-            select_id = "{}_{}_{}_{}".format(service['selector'].get ('app', ""),
-                                              service['selector'].get ('org', ""),
-                                              service['selector'].get ('role', ""),
-                                              service['selector'].get ('name', ""), )
+            name_list = ['name', 'peer-id', 'orderer-id']
+            for e in name_list:
+                name = service['selector'].get(e, None)
+                if name is not None:
+                    break
+
+            select_id = "{}_{}_{}_{}".format(service['selector'].get('app', ""),
+                                             service['selector'].get('org', ""),
+                                             service['selector'].get('role', ""),
+                                             name, )
 
             pod = kube_pods.get(select_id, None)
             if pod is None:
@@ -789,8 +801,12 @@ class K8sClusterOperation():
         # time.sleep (3)
 
         if consensus == "kafka":
+            kafka_params = {
+                "kafka.tpl": {
+                }
+            }
             file_data = self._render_config_file("kafka.tpl", cluster_name,
-                                                  {}, nfsServer_ip, False)
+                                                 kafka_params, nfsServer_ip, False)
             yaml_data = yaml.load_all(file_data)
             self._deploy_k8s_resource(yaml_data, save)
             time.sleep(3)

@@ -92,6 +92,11 @@ export const getRouterData = app => {
         import('../routes/Chain/CreateChain')
       ),
     },
+    '/update-chain': {
+      component: dynamicWrapper(app, ['host', 'chain'], () =>
+        import('../routes/Chain/UpdateChain')
+      ),
+    },
     '/user-management': {
       component: dynamicWrapper(app, ['user'], () => import('../routes/UserManagement')),
     },

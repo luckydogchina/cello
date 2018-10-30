@@ -46,6 +46,10 @@ const messages = defineMessages({
       id: 'Chain.Button.Delete',
       defaultMessage: 'Delete',
     },
+    update: {
+      id: 'Chain.Button.Update',
+      defaultMessage: 'Update',
+    },
   },
   label: {
     networkType: {
@@ -144,6 +148,18 @@ class Chain extends PureComponent {
           },
         });
         break;
+      case 'update':
+        dispatch({
+          type: 'chain/setCurClusterId',
+          currentChain: item.props.chain
+        })
+        dispatch(
+          routerRedux.push({
+            pathname: '/update-chain',
+            query: {currentChain: item.props.chain}
+          })
+        );
+        break;
       default:
         break;
     }
@@ -201,6 +217,9 @@ class Chain extends PureComponent {
         </Menu.Item>
         <Menu.Item key="release" chain={chainItem}>
           <FormattedMessage {...messages.button.release} />
+        </Menu.Item>
+        <Menu.Item key="update" chain={chainItem}>
+          <FormattedMessage {...messages.button.update} />
         </Menu.Item>
         <Menu.Item key="delete" chain={chainItem}>
           <span className={styles['delete-button']}>

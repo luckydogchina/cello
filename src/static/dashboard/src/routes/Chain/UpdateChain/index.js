@@ -47,9 +47,13 @@ const messages = defineMessages({
       id: 'Chain.Create.Label.ChainSize',
       defaultMessage: 'Chain Size',
     },
-    chainConfig: {
-      id: 'Chain.Create.Label.ChainConfig',
-      defaultMessage: 'Chain Config',
+    oldchainConfig: {
+      id: 'Chain.Create.Label.OldChainConfig',
+      defaultMessage: 'Origin Chain Config',
+    },
+    newchainConfig: {
+      id: 'Chain.Create.Label.NewChainConfig',
+      defaultMessage: 'New Chain Config',
     },
   },
   button: {
@@ -86,18 +90,18 @@ const messages = defineMessages({
   },
 });
 
-@connect(({ host, loading }) => ({
-  host,
-  loadingHosts: loading.effects['host/fetchHosts'],
+@connect(({ chain }) => ({
+  chain,
+  // loadingHosts: loading.effects['host/fetchHosts'],
 }))
 @Form.create()
-class CreateChain extends PureComponent {
+class UpdateChain extends PureComponent {
   state = {
     submitting: false,
   };
   componentDidMount() {
     this.props.dispatch({
-      type: 'host/fetchHosts',
+      type: 'chain/fetchChains',
     });
   }
   submitCallback = () => {
@@ -120,38 +124,52 @@ class CreateChain extends PureComponent {
           submitting: true,
         });
         this.props.dispatch({
-          type: 'chain/createChain',
+          type: 'chain/operateChain',
           payload: {
+            cluster_id: id,
+            action: 'update',
+            name,
             ...values,
             callback: this.submitCallback,
           },
         });
+
+        // this.props.dispatch({
+        //   type: 'chain/createChain',
+        //   payload: {
+        //     ...values,
+        //     callback: this.submitCallback,
+        //   },
+        // });
       }
     });
   };
   render() {
     const { getFieldDecorator } = this.props.form;
-    const { intl, host } = this.props;
+    const { intl ,chain} = this.props;
+    const {currentChain: currentChain } = chain;
+    const { location: { query:{currentChain1} } } = this.props;
     const { submitting } = this.state;
-    const { hosts } = host;
-    const availableHosts = hosts.filter(hostItem => hostItem.capacity > hostItem.clusters.length);
-    const hostOptions = availableHosts.map(hostItem => (
-      <Option value={hostItem.id}>{hostItem.name}</Option>
-    ));
-    const networkTypes = ['fabric-1.0','fabric-1.1','fabric-1.2'];
-    const networkTypeOptions = networkTypes.map(networkType => (
-      <Option value={networkType}>{networkType}</Option>
-    ));
-    const chainSizes = [4];
-    const chainSizeOptions = chainSizes.map(chainSize => (
-      <Option value={chainSize}>{chainSize}</Option>
-    ));
-    const consensusPlugins = ['solo', 'kafka'];
-    const consensusPluginOptions = consensusPlugins.map(consensusPlugin => (
-      <Option value={consensusPlugin}>
-        <span className={styles.upperText}>{consensusPlugin}</span>
-      </Option>
-    ));
+    const { curclusterid } = chain;
+    // const { hosts } = host;
+    // const availableHosts = hosts.filter(hostItem => hostItem.capacity > hostItem.clusters.length);
+    // const hostOptions = availableHosts.map(hostItem => (
+    //   <Option value={hostItem.id}>{hostItem.name}</Option>
+    // ));
+    // const networkTypes = ['fabric-1.0','fabric-1.1','fabric-1.2'];
+    // const networkTypeOptions = networkTypes.map(networkType => (
+    //   <Option value={networkType}>{networkType}</Option>
+    // ));
+    // const chainSizes = [4];
+    // const chainSizeOptions = chainSizes.map(chainSize => (
+    //   <Option value={chainSize}>{chainSize}</Option>
+    // ));
+    // const consensusPlugins = ['solo', 'kafka'];
+    // const consensusPluginOptions = consensusPlugins.map(consensusPlugin => (
+    //   <Option value={consensusPlugin}>
+    //     <span className={styles.upperText}>{consensusPlugin}</span>
+    //   </Option>
+    // ));
 
     const formItemLayout = {
       labelCol: {
@@ -176,65 +194,35 @@ class CreateChain extends PureComponent {
         <Card bordered={false}>
           <Form onSubmit={this.handleSubmit} hideRequiredMark style={{ marginTop: 8 }}>
             <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.name)}>
-              {getFieldDecorator('name', {
-                initialValue: '',
-                rules: [
-                  {
-                    required: true,
-                    message: intl.formatMessage(messages.validate.required.name),
-                  },
-                ],
-              })(<Input placeholder={intl.formatMessage(messages.label.name)} />)}
+                <p>{currentChain.name}</p>
             </FormItem>
             <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.host)}>
-              {getFieldDecorator('host_id', {
-                initialValue: availableHosts.length > 0 ? availableHosts[0].id : '',
-                rules: [
-                  {
-                    required: true,
-                    message: intl.formatMessage(messages.validate.required.host),
-                  },
-                ],
-              })(<Select>{hostOptions}</Select>)}
+                <p>{currentChain.host_id}</p>
             </FormItem>
             <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.networkType)}>
-              {getFieldDecorator('network_type', {
-                initialValue: networkTypes[0],
-                rules: [
-                  {
-                    required: true,
-                    message: 'Must select network type',
-                  },
-                ],
-              })(<Select>{networkTypeOptions}</Select>)}
+               <p>{currentChain.network_type}</p>
             </FormItem>
             <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.chainSize)}>
-              {getFieldDecorator('size', {
-                initialValue: chainSizes[0],
-                rules: [
-                  {
-                    required: true,
-                    message: 'Must select chain size',
-                  },
-                ],
-              })(<Select>{chainSizeOptions}</Select>)}
+              <p>{currentChain.size}</p>
             </FormItem>
-            <FormItem
-              {...formItemLayout}
-              label={intl.formatMessage(messages.label.consensusPlugin)}
-            >
-              {getFieldDecorator('consensus_plugin', {
-                initialValue: consensusPlugins[0],
-                rules: [
-                  {
-                    required: true,
-                    message: 'Must select consensus plugin',
-                  },
-                ],
-              })(<Select>{consensusPluginOptions}</Select>)}
+            <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.consensusPlugin)}>
+              <p>{currentChain.consensus_plugin}</p>
             </FormItem>
-
-            <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.chainConfig)}>
+            <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.oldchainConfig)}>
+              <p>{'{'+
+                              '"org_name" : "Org2",'+
+                              '"peers" : [ "peer0", "peer1" ],'+
+                              '"anchor_peer" : "peer0",'+
+                              '"domain" : "org2.example.com"'+
+                              '},'+
+                              '{'+
+                              '"org_name" : "Org1",'+
+                              '"peers" : [ "peer0", "peer1" ],'+
+                              '"anchor_peer" : "peer0",'+
+                              '"domain" : "org1.example.com"'+
+                              '}'}</p>
+            </FormItem>
+            <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.newchainConfig)}>
               {getFieldDecorator('network', {
                 initialValue: '{'+
                               '"org_name" : "Org2",'+
@@ -248,13 +236,14 @@ class CreateChain extends PureComponent {
                               '"anchor_peer" : "peer0",'+
                               '"domain" : "org1.example.com"'+
                               '}',
+
                 rules: [
                   {
                     required: true,
                     message: intl.formatMessage(messages.validate.required.chainConfig),
                   },
                 ],
-              })(<TextArea rows={11}/>)}
+              })(<TextArea  rows={11} />)}
             </FormItem>
 
             <FormItem {...submitFormLayout} style={{ marginTop: 32 }}>
@@ -272,4 +261,4 @@ class CreateChain extends PureComponent {
   }
 }
 
-export default injectIntl(CreateChain);
+export default injectIntl(UpdateChain);

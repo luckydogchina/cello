@@ -365,7 +365,8 @@ class CreateHost extends PureComponent {
         sm: { span: 10, offset: 7 },
       },
     };
-    const hostTypeValues = ['docker', 'swarm', 'kubernetes', 'vsphere'];
+    //const hostTypeValues = ['docker', 'swarm', 'kubernetes', 'vsphere'];
+    const hostTypeValues = ['kubernetes'];
     const hostTypeOptions = hostTypeValues.map(item => (
       <Option value={item}>
         <span className={styles.upperText}>{item}</span>

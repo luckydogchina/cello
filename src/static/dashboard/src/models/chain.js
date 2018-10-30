@@ -42,6 +42,7 @@ export default {
 
   state: {
     chains: [],
+    currentChain: {},
   },
 
   effects: {
@@ -83,6 +84,7 @@ export default {
       }
       yield call(payload.callback);
     },
+
   },
 
   reducers: {
@@ -90,6 +92,12 @@ export default {
       return {
         ...state,
         chains: action.payload,
+      };
+    },
+    setCurClusterId(state, {currentChain: currentChain}) {
+      return {
+        ...state,
+        currentChain: currentChain,
       };
     },
   },

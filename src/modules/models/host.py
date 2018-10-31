@@ -114,6 +114,13 @@ class ClusterSchema(Schema):
     containers = fields.Method("get_containers")
     service_ports = fields.Method("get_service_ports")
     external_port_start = fields.Integer()
+    network = fields.Method('get_network')
+
+    def get_network(self, cluster):
+        network = ClusterNetwork.objects.get(cluster=cluster,
+                                              version=cluster.version)
+        network = network.network
+        return dict(network)
 
     def get_host_name(self, cluster):
         return cluster.host.name

@@ -89,6 +89,7 @@ class ClusterHandler(object):
                 "state": col_name
             })
             clusters = ClusterModel.objects(__raw__=filter_data)
+
             result = self._schema(clusters, many=True)
         else:
             logger.warning("Unknown cluster col_name=" + col_name)

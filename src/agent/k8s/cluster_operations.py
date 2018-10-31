@@ -14,11 +14,12 @@ from copy import deepcopy
 from uuid import uuid4
 
 import common
+from common.utils import CONSENSUS_PLUGIN_KAFKA
 from modules.models import Deployment
 from ..host_base import HostBase
-from common import log_handler, LOG_LEVEL, db, utils, ClusterEnvelop,\
-    ChannelComputeUpdateV1, CA_PORTS_UPPER_LIMIT,CLUSTER_PORT_STEP, \
-    ORDERER_PORTS_UPPER_LIMIT
+from common import log_handler, LOG_LEVEL, db, utils, ClusterEnvelop, \
+    ChannelComputeUpdateV1, CA_PORTS_UPPER_LIMIT, CLUSTER_PORT_STEP, \
+    ORDERER_PORTS_UPPER_LIMIT, CONSENSUS_PLUGIN_SOLO
 from jinja2 import Template, Environment, FileSystemLoader
 from kubernetes import client, config
 from kubernetes.stream import stream
@@ -622,13 +623,13 @@ class K8sClusterOperation():
 
     # add a orderer
     def _deploy_node_orderer(self, cluster_name, node_params,
-                             consensus="kafka", save=None):
-        if consensus == "kafka":
+                             consensus=CONSENSUS_PLUGIN_KAFKA, save=None):
+        if consensus == CONSENSUS_PLUGIN_KAFKA:
             file_data = self._render_config_file("ordererx.kafka.tpl",
                                                   cluster_name,
                                                   node_params,
                                                   extend=True);
-        elif consensus == "solo":
+        elif consensus == CONSENSUS_PLUGIN_SOLO:
             file_data = self._render_config_file("ordererx.solo.tpl",
                                                   cluster_name,
                                                   node_params,
@@ -718,7 +719,8 @@ class K8sClusterOperation():
                                  cluster_config, save=None):
 
         consensus = cluster_config.get("consensus");
-        if consensus != "solo" and consensus != "kafka":
+        if consensus != CONSENSUS_PLUGIN_KAFKA and \
+                consensus != CONSENSUS_PLUGIN_SOLO:
             logger.error("the cluster: {} is wrong consensus "
                          "{}".format(cluster_name, consensus))
             return False
@@ -800,7 +802,7 @@ class K8sClusterOperation():
             return False
         # time.sleep (3)
 
-        if consensus == "kafka":
+        if consensus == CONSENSUS_PLUGIN_KAFKA:
             kafka_params = {
                 "kafka.tpl": {
                 }
@@ -821,11 +823,10 @@ class K8sClusterOperation():
                     }
                 };
 
-                if not self._deploy_node_orderer(cluster_name, node_params,save=save):
+                if not self._deploy_node_orderer(cluster_name, node_params, save=save):
                     return False
                 orderer_start +=1
 
-                # time.sleep(3);
         else:
             orderers = orderer_org.get("peers", "")
             node_params = {
@@ -838,9 +839,8 @@ class K8sClusterOperation():
             };
 
             if not self._deploy_node_orderer(cluster_name, node_params,
-                                             consensus="solo", save=save):
+                                             consensus=CONSENSUS_PLUGIN_SOLO, save=save):
                 return False
-            #time.sleep(3)
 
         return True
 
@@ -970,6 +970,14 @@ class K8sClusterOperation():
         self.delete_resources(deployments)
         time.sleep(2)
 
+        while True:
+            logger.info("cleaning the namespace {} ... ...".format(cluster_name))
+            pods = self.corev1client.list_namespaced_pod(cluster_name)
+            pods_list = [n.metadata.name for n in pods.items]
+            if len(pods_list) == 1:
+                break
+            time.sleep(3)
+
         return True
 
     def start_cluster(self, cluster_name, doc_deployments):
@@ -1062,7 +1070,7 @@ class K8sClusterOperation():
                     delete_list.append(id.lower())
 
         # check the orderer node
-        if original.get("consensus") == "solo":
+        if original.get("consensus") == CONSENSUS_PLUGIN_SOLO:
             return delete_list, delete_orgs, delete_orderers
 
         original_orderer = original.get("orderer", {})
@@ -1132,7 +1140,7 @@ class K8sClusterOperation():
                     new_elements.append(Element(NODETYPE_PEER, params_peers))
 
 
-        if original.get("consensus") == "solo":
+        if original.get("consensus") == CONSENSUS_PLUGIN_SOLO:
             return new_elements, new_orgs, new_orderers
 
         original_orderer = original.get("orderer", {})

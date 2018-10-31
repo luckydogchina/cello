@@ -2,12 +2,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
+import json
 import logging
 import os
 import sys
 
 from flask import Blueprint, render_template
 from flask import request as r
+
+from common.utils import json_decode, CONSENSUS_PLUGIN_SOLO, CONSENSUS_PLUGIN_KAFKA
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from common import log_handler, LOG_LEVEL, \
@@ -18,7 +21,7 @@ from common import log_handler, LOG_LEVEL, \
     NETWORK_TYPE_FABRIC_V1, NETWORK_TYPE_FABRIC_V1_1, \
     NETWORK_TYPE_FABRIC_V1_2, \
     CONSENSUS_PLUGINS_FABRIC_V1, CONSENSUS_MODES, NETWORK_SIZE_FABRIC_PRE_V1, \
-    FabricPreNetworkConfig, FabricV1NetworkConfig
+    FabricPreNetworkConfig, FabricV1NetworkConfig, ClusterNetwork, Organization
 
 from modules import cluster_handler, host_handler
 
@@ -49,6 +52,21 @@ def cluster_start(r):
 
     return make_fail_resp("cluster start failed")
 
+
+def cluster_update(r):
+    """Start a cluster which should be in stopped status currently.
+
+    :param r:
+    :return:
+    """
+    cluster_id = request_get(r, "cluster_id")
+    if not cluster_id:
+        logger.warning("No cluster_id is given")
+        return make_fail_resp("No cluster_id is given")
+    if cluster_handler.start(cluster_id):
+        return make_ok_resp()
+
+    return make_fail_resp("cluster start failed")
 
 def cluster_restart(r):
     """Start a cluster which should be in stopped status currently.
@@ -211,6 +229,8 @@ def cluster_actions():
         return cluster_restart(r)
     elif action == "fetch":
         return cluster_fetch(r)
+    elif action == 'update':
+        return cluster_update(r)
     else:
         return make_fail_resp(error="Unknown action type")
 
@@ -259,7 +279,7 @@ def cluster_create():
     else:
         body = r.form
     if not body["name"] or not body["host_id"] or \
-            not body["network_type"]:
+            not body["network_type"] or not body['network']:
         error_msg = "cluster post without enough data"
         logger.warning(error_msg)
         return make_fail_resp(error=error_msg, data=body)
@@ -296,6 +316,29 @@ def cluster_create():
         return make_fail_resp(error="config not validated",
                               data=config.get_data())
 
+    application = json_decode(body['network'])
+    if not isinstance(application, dict) or not len(application.get('application', [])):
+        return make_fail_resp(error="network config not validated",
+                              data=body['network'])
+
+    if config.consensus_plugin == CONSENSUS_PLUGIN_SOLO:
+        ordererOrg = Organization("OrdererOrg",
+                                  "orderer.example.com",
+                                  ["orderer0"])
+    elif config.consensus_plugin == CONSENSUS_PLUGIN_KAFKA:
+        ordererOrg = Organization("OrdererOrg",
+                                  "orderer.example.com",
+                                  ["orderer0", "orderer1", "orderer2"])
+    else:
+        return make_fail_resp(error="consensus_plugin not supported",
+                              data=config.get_data())
+
+    network = ClusterNetwork(version=network_type,
+                             orderer=ordererOrg,
+                             application=application.get('application'),
+                             consensus=config.consensus_plugin)
+
+    config.network(network)
     if cluster_handler.create(name=name, host_id=host_id, config=config):
         logger.debug("cluster POST successfully")
         return make_ok_resp(code=CODE_CREATED)

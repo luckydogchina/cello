@@ -52,6 +52,14 @@ export default {
         type: 'setChains',
         payload: response.data,
       });
+
+      if (response.data.length > 0){
+        yield put({
+          type: 'setCurClusterId',
+          currentChain: response.data[0],
+        });
+      }
+
     },
     *operateChain({ payload }, { call, put }) {
       const response = yield call(operateChain, payload);

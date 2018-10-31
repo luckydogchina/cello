@@ -100,9 +100,9 @@ class UpdateChain extends PureComponent {
     submitting: false,
   };
   componentDidMount() {
-    this.props.dispatch({
-      type: 'chain/fetchChains',
-    });
+    // this.props.dispatch({
+    //   type: 'chain/fetchChains',
+    // });
   }
   submitCallback = () => {
     this.setState({
@@ -117,6 +117,7 @@ class UpdateChain extends PureComponent {
     );
   };
   handleSubmit = e => {
+    const { chain:{currentChain:{id,name}}} = this.props;
     e.preventDefault();
     this.props.form.validateFieldsAndScroll((err, values) => {
       if (!err) {
@@ -148,9 +149,15 @@ class UpdateChain extends PureComponent {
     const { getFieldDecorator } = this.props.form;
     const { intl ,chain} = this.props;
     const {currentChain: currentChain } = chain;
-    const { location: { query:{currentChain1} } } = this.props;
+    const {network } = currentChain;
+    // const { location: { query:{currentChain1} } } = this.props;
     const { submitting } = this.state;
     const { curclusterid } = chain;
+    var varnetwork = network;
+    delete varnetwork.orderer;
+    delete varnetwork.consensus;
+    delete varnetwork.version;
+    var networkstr=JSON.stringify(varnetwork)
     // const { hosts } = host;
     // const availableHosts = hosts.filter(hostItem => hostItem.capacity > hostItem.clusters.length);
     // const hostOptions = availableHosts.map(hostItem => (
@@ -208,35 +215,21 @@ class UpdateChain extends PureComponent {
             <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.consensusPlugin)}>
               <p>{currentChain.consensus_plugin}</p>
             </FormItem>
-            <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.oldchainConfig)}>
-              <p>{'{'+
-                              '"org_name" : "Org2",'+
-                              '"peers" : [ "peer0", "peer1" ],'+
-                              '"anchor_peer" : "peer0",'+
-                              '"domain" : "org2.example.com"'+
-                              '},'+
-                              '{'+
-                              '"org_name" : "Org1",'+
-                              '"peers" : [ "peer0", "peer1" ],'+
-                              '"anchor_peer" : "peer0",'+
-                              '"domain" : "org1.example.com"'+
-                              '}'}</p>
-            </FormItem>
             <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.newchainConfig)}>
               {getFieldDecorator('network', {
-                initialValue: '{'+
-                              '"org_name" : "Org2",'+
-                              '"peers" : [ "peer0", "peer1" ],'+
-                              '"anchor_peer" : "peer0",'+
-                              '"domain" : "org2.example.com"'+
-                              '},'+
-                              '{'+
-                              '"org_name" : "Org1",'+
-                              '"peers" : [ "peer0", "peer1" ],'+
-                              '"anchor_peer" : "peer0",'+
-                              '"domain" : "org1.example.com"'+
-                              '}',
-
+                // initialValue: '{'+
+                //               '"org_name" : "Org2",'+
+                //               '"peers" : [ "peer0", "peer1" ],'+
+                //               '"anchor_peer" : "peer0",'+
+                //               '"domain" : "org2.example.com"'+
+                //               '},'+
+                //               '{'+
+                //               '"org_name" : "Org1",'+
+                //               '"peers" : [ "peer0", "peer1" ],'+
+                //               '"anchor_peer" : "peer0",'+
+                //               '"domain" : "org1.example.com"'+
+                //               '}',
+                initialValue:networkstr,
                 rules: [
                   {
                     required: true,

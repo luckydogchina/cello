@@ -236,18 +236,7 @@ class CreateChain extends PureComponent {
 
             <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.chainConfig)}>
               {getFieldDecorator('network', {
-                initialValue: '{'+
-                              '"org_name" : "Org2",'+
-                              '"peers" : [ "peer0", "peer1" ],'+
-                              '"anchor_peer" : "peer0",'+
-                              '"domain" : "org2.example.com"'+
-                              '},'+
-                              '{'+
-                              '"org_name" : "Org1",'+
-                              '"peers" : [ "peer0", "peer1" ],'+
-                              '"anchor_peer" : "peer0",'+
-                              '"domain" : "org1.example.com"'+
-                              '}',
+                initialValue: '{"application":[{"org_name" : "Org2","peers" : [ "peer0", "peer1" ],"anchor_peer" : "peer0","domain" : "org2.example.com"},{"org_name" : "Org1","peers" : [ "peer0", "peer1" ],"anchor_peer" : "peer0","domain" : "org1.example.com"}]}',
                 rules: [
                   {
                     required: true,

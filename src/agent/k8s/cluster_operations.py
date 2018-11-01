@@ -1104,7 +1104,7 @@ class K8sClusterOperation():
             update_org = update_orgs.get(org_name)
 
             params = Params()
-            params.set("organizationId", org_name.lower())
+            params.set("organizationId", org_name)
             params.set("domain", update_org.get("domain"))
 
             for update_peer in update_org.get("peers"):
@@ -1138,7 +1138,6 @@ class K8sClusterOperation():
                     params_peers = params.copy()
                     params_peers.set("peerId", update_peer)
                     new_elements.append(Element(NODETYPE_PEER, params_peers))
-
 
         if original.get("consensus") == CONSENSUS_PLUGIN_SOLO:
             return new_elements, new_orgs, new_orderers

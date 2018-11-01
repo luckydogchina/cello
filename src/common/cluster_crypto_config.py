@@ -22,7 +22,7 @@ class Organization(cluster):
 
 class ClusterNetwork(cluster):
 
-    def __init__(self, version, orderer, application=[], consensus="solo"):
+    def __init__(self, version=0, orderer={}, application=[], consensus="solo"):
         self.__setattr__("orderer", orderer)
         self.__setattr__("application", application)
         self.__setattr__("version", version)

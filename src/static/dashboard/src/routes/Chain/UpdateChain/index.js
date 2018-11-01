@@ -117,7 +117,8 @@ class UpdateChain extends PureComponent {
     );
   };
   handleSubmit = e => {
-    const { chain:{currentChain:{id,name}}} = this.props;
+    const { chain:{currentChain:{id, name, host_id, network}}} = this.props;
+    var networkstr=JSON.stringify(network)
     e.preventDefault();
     this.props.form.validateFieldsAndScroll((err, values) => {
       if (!err) {
@@ -130,18 +131,17 @@ class UpdateChain extends PureComponent {
             cluster_id: id,
             action: 'update',
             name,
+            host_id,
+            old_network: networkstr,
             ...values,
-            callback: this.submitCallback,
+            // callback: this.submitCallback,
           },
         });
-
-        // this.props.dispatch({
-        //   type: 'chain/createChain',
-        //   payload: {
-        //     ...values,
-        //     callback: this.submitCallback,
-        //   },
-        // });
+        this.props.dispatch(
+          routerRedux.push({
+            pathname: '/chain',
+          })
+        );
       }
     });
   };
@@ -150,33 +150,13 @@ class UpdateChain extends PureComponent {
     const { intl ,chain} = this.props;
     const {currentChain: currentChain } = chain;
     const {network } = currentChain;
-    // const { location: { query:{currentChain1} } } = this.props;
     const { submitting } = this.state;
     const { curclusterid } = chain;
-    var varnetwork = network;
+    var varnetwork=JSON.parse(JSON.stringify(network))
     delete varnetwork.orderer;
     delete varnetwork.consensus;
     delete varnetwork.version;
     var networkstr=JSON.stringify(varnetwork)
-    // const { hosts } = host;
-    // const availableHosts = hosts.filter(hostItem => hostItem.capacity > hostItem.clusters.length);
-    // const hostOptions = availableHosts.map(hostItem => (
-    //   <Option value={hostItem.id}>{hostItem.name}</Option>
-    // ));
-    // const networkTypes = ['fabric-1.0','fabric-1.1','fabric-1.2'];
-    // const networkTypeOptions = networkTypes.map(networkType => (
-    //   <Option value={networkType}>{networkType}</Option>
-    // ));
-    // const chainSizes = [4];
-    // const chainSizeOptions = chainSizes.map(chainSize => (
-    //   <Option value={chainSize}>{chainSize}</Option>
-    // ));
-    // const consensusPlugins = ['solo', 'kafka'];
-    // const consensusPluginOptions = consensusPlugins.map(consensusPlugin => (
-    //   <Option value={consensusPlugin}>
-    //     <span className={styles.upperText}>{consensusPlugin}</span>
-    //   </Option>
-    // ));
 
     const formItemLayout = {
       labelCol: {
@@ -217,18 +197,6 @@ class UpdateChain extends PureComponent {
             </FormItem>
             <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.newchainConfig)}>
               {getFieldDecorator('network', {
-                // initialValue: '{'+
-                //               '"org_name" : "Org2",'+
-                //               '"peers" : [ "peer0", "peer1" ],'+
-                //               '"anchor_peer" : "peer0",'+
-                //               '"domain" : "org2.example.com"'+
-                //               '},'+
-                //               '{'+
-                //               '"org_name" : "Org1",'+
-                //               '"peers" : [ "peer0", "peer1" ],'+
-                //               '"anchor_peer" : "peer0",'+
-                //               '"domain" : "org1.example.com"'+
-                //               '}',
                 initialValue:networkstr,
                 rules: [
                   {

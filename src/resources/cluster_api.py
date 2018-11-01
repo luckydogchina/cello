@@ -60,13 +60,22 @@ def cluster_update(r):
     :return:
     """
     cluster_id = request_get(r, "cluster_id")
-    if not cluster_id:
-        logger.warning("No cluster_id is given")
-        return make_fail_resp("No cluster_id is given")
-    if cluster_handler.start(cluster_id):
-        return make_ok_resp()
+    application = request_get(r, 'network')
+    host_id = request_get(r, 'host_id')
+    network = request_get(r, 'old_network')
 
-    return make_fail_resp("cluster start failed")
+    application = json_decode(application)
+    network = json_decode(network)
+    if not application or not len(application.get('application',[])):
+        logger.warning("not application  is given")
+        return make_fail_resp("No application is given")
+
+    network['application'] = application.get('application')
+    cluster_network = ClusterNetwork()
+    cluster_network.update(network)
+    if not cluster_handler.update(cluster_id, host_id, cluster_network):
+        return make_fail_resp("cluster start failed")
+    return make_ok_resp()
 
 def cluster_restart(r):
     """Start a cluster which should be in stopped status currently.

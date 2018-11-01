@@ -474,7 +474,7 @@ class ClusterHandler(object):
         self.db_update_one(
             {"id": cid},
             {
-                "user_id": user_id,
+                #"user_id": user_id,
                 'api_url': service_urls.get('rest', ""),
                 'service_url': service_urls,
                 'status': NETWORK_STATUS_RUNNING,
@@ -491,8 +491,8 @@ class ClusterHandler(object):
             :param user_id: who to do
         """
 
-        logger.info ("Add node to cluster={}, host_id={}, org_id={}, element={}"
-                     "user_id={}".format (cluster_id, host_id, cluster_id,
+        logger.info("Add node to cluster={}, host_id={}, org_id={}, element={}"
+                     "user_id={}".format(cluster_id, host_id, cluster_id,
                                           new_network, user_id))
         #check host_id and cluster_id
         worker = self.host_handler.get_active_host_by_id(host_id)
@@ -518,7 +518,7 @@ class ClusterHandler(object):
             self.db_update_one(
                 {"id": cluster_id},
                 {
-                    "user_id": user_id,
+                    #"user_id": user_id,
                     'status': NETWORK_STATUS_UPDATING,
                 }
             )

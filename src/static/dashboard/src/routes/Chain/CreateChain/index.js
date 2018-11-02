@@ -138,7 +138,7 @@ class CreateChain extends PureComponent {
     const hostOptions = availableHosts.map(hostItem => (
       <Option value={hostItem.id}>{hostItem.name}</Option>
     ));
-    const networkTypes = ['fabric-1.0','fabric-1.1','fabric-1.2'];
+    const networkTypes = ['fabric-1.2','fabric-1.1','fabric-1.0'];
     const networkTypeOptions = networkTypes.map(networkType => (
       <Option value={networkType}>{networkType}</Option>
     ));
@@ -236,7 +236,11 @@ class CreateChain extends PureComponent {
 
             <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.chainConfig)}>
               {getFieldDecorator('network', {
-                initialValue: '{"application":[{"org_name" : "Org2","peers" : [ "peer0", "peer1" ],"anchor_peer" : "peer0","domain" : "org2.example.com"},{"org_name" : "Org1","peers" : [ "peer0", "peer1" ],"anchor_peer" : "peer0","domain" : "org1.example.com"}]}',
+                initialValue: '{"application":[' +
+                '{"org_name" : "Org2","peers" : [ "peer0", "peer1" ],' +
+                '"anchor_peer" : "peer0","domain" : "org2.example.com"},' +
+                '{"org_name" : "Org1","peers" : [ "peer0", "peer1" ],' +
+                '"anchor_peer" : "peer0","domain" : "org1.example.com"}]}',
                 rules: [
                   {
                     required: true,

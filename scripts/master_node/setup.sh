@@ -124,7 +124,7 @@ if [ `sudo docker ps -qa|wc -l` -gt 0 ]; then
 fi
 
 echo_b "Download required Docker images for Cello Services..."
-bash ./download_images.sh
+# bash ./download_images.sh
 
 echo_b "Checking local mounted database path ${DB_DIR}..."
 [ ! -d ${DB_DIR} ] \

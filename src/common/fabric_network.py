@@ -141,8 +141,8 @@ class FabricV1Network(FabricNetwork):
                 run_containers += 1
             containers += 1
             logger.debug("Number of Orderers up: {}".format(orderer_up))
-        if (cluster["size"] == peer_ports_up and
-                (run_containers == containers)):
+        if (cluster["size"] == peer_ports_up and (
+                run_containers == containers)):
             logger.debug("health check of cluster id={} is OK"
                          .format(cluster_id))
             return "OK"

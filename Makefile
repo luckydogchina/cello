@@ -148,6 +148,8 @@ docker: $(patsubst %,build/docker/%/$(DUMMY),$(DOCKER_IMAGES)) ##@Generate docke
 
 docker-operator-dashboard: build/docker/operator-dashboard/$(DUMMY)
 
+docker-user-dashboard: build/docker/user-dashboard/$(DUMMY)
+
 docker-clean: stop image-clean ##@Clean all existing images
 
 DOCKERHUB_IMAGES = baseimage engine operator-dashboard user-dashboard watchdog ansible-agent fabric-initial

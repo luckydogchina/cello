@@ -3,7 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
+import logging
 import re
+
+from common import log_handler, LOG_LEVEL
+
+logger = logging.getLogger(__name__)
+logger.setLevel(LOG_LEVEL)
+logger.addHandler(log_handler)
 
 
 class StringValidator(object):
@@ -42,6 +49,7 @@ class StringValidator(object):
                         return False
 
             except Exception as e:
+                logger.error(e)
                 raise
 
         return True if not fail else results
@@ -56,6 +64,7 @@ class StringValidator(object):
             float(input)
             return True
         except Exception as e:
+            logger.error(e)
             return False
 
     def _check_is_alpha(self, input):
@@ -72,6 +81,7 @@ class StringValidator(object):
             int(input)
             return True
         except Exception as e:
+            logger.error(e)
             return False
 
     def _check_is_float(self, input):
@@ -79,6 +89,7 @@ class StringValidator(object):
         try:
             return True if str(float(input)) == input else False
         except Exception as e:
+            logger.error(e)
             return False
 
     def _check_longer_than(self, input, args):

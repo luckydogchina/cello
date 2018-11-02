@@ -34,14 +34,8 @@ socketio = SocketIO(app)
 app.config.from_object('config.DevelopmentConfig')
 app.config.from_envvar('CELLO_CONFIG_FILE', silent=True)
 
-# connect(app.config.get("MONGODB_DB", "dashboard"),
-#         host=app.config.get("MONGODB_HOST", "mongo"),
-#         username=app.config.get("MONGODB_USERNAME", ""),
-#         password=app.config.get("MONGODB_PASSWORD", ""),
-#         connect=False, tz_aware=True)
-
 connect(app.config.get("MONGODB_DB", "dashboard"),
-        host="127.0.0.1",
+        host=app.config.get("MONGODB_HOST", "mongo"),
         username=app.config.get("MONGODB_USERNAME", ""),
         password=app.config.get("MONGODB_PASSWORD", ""),
         connect=False, tz_aware=True)

@@ -438,5 +438,6 @@ class VsphereOperation():
                 sk.connect((vmip, vmport))
                 return True
             except Exception as e:
+                logger.error(e)
                 pass
         return False

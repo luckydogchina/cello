@@ -10,7 +10,8 @@ import sys
 from flask import Blueprint, render_template
 from flask import request as r
 
-from common.utils import json_decode, CONSENSUS_PLUGIN_SOLO, CONSENSUS_PLUGIN_KAFKA
+from common.utils import json_decode, \
+    CONSENSUS_PLUGIN_SOLO, CONSENSUS_PLUGIN_KAFKA
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from common import log_handler, LOG_LEVEL, \
@@ -20,8 +21,9 @@ from common import log_handler, LOG_LEVEL, \
     NETWORK_TYPES, NETWORK_TYPE_FABRIC_PRE_V1, \
     NETWORK_TYPE_FABRIC_V1, NETWORK_TYPE_FABRIC_V1_1, \
     NETWORK_TYPE_FABRIC_V1_2, \
-    CONSENSUS_PLUGINS_FABRIC_V1, CONSENSUS_MODES, NETWORK_SIZE_FABRIC_PRE_V1, \
-    FabricPreNetworkConfig, FabricV1NetworkConfig, ClusterNetwork, Organization
+    CONSENSUS_PLUGINS_FABRIC_V1, CONSENSUS_MODES,\
+    NETWORK_SIZE_FABRIC_PRE_V1, FabricPreNetworkConfig,\
+    FabricV1NetworkConfig, ClusterNetwork, Organization
 
 from modules import cluster_handler, host_handler
 
@@ -66,7 +68,7 @@ def cluster_update(r):
 
     application = json_decode(application)
     network = json_decode(network)
-    if not application or not len(application.get('application',[])):
+    if not application or not len(application.get('application', [])):
         logger.warning("not application  is given")
         return make_fail_resp("No application is given")
 
@@ -76,6 +78,7 @@ def cluster_update(r):
     if not cluster_handler.update(cluster_id, host_id, cluster_network):
         return make_fail_resp("cluster start failed")
     return make_ok_resp()
+
 
 def cluster_restart(r):
     """Start a cluster which should be in stopped status currently.
@@ -159,15 +162,6 @@ def cluster_apply(r):
         return make_ok_resp(data=c)
 
 
-def cluster_fetch(r):
-    """
-    return the specify cluster info and config_json.
-    :param r:
-    :return:
-    """
-
-    pass
-
 def cluster_release(r):
     """Release a cluster which should be in used status currently.
 
@@ -186,12 +180,16 @@ def cluster_release(r):
         result = None
         if un_reset is None:
             if cluster_id:
-                result = cluster_handler.release_cluster(cluster_id=cluster_id)
+                result = \
+                    cluster_handler.release_cluster(cluster_id=cluster_id)
             elif user_id:
-                result = cluster_handler.release_cluster_for_user(user_id=user_id)
+                result = \
+                    cluster_handler.release_cluster_for_user(user_id=user_id)
             if not result:
-                error_msg = "cluster_release failed user_id={} cluster_id={}". \
+                error_msg = "cluster_release failed user_id={}" \
+                            " cluster_id={}".\
                     format(user_id, cluster_id)
+
                 logger.warning(error_msg)
                 data = {
                     "user_id": user_id,
@@ -206,7 +204,6 @@ def cluster_release(r):
                     return make_ok_resp()
 
             return make_fail_resp(error="not release")
-
 
 
 @front_rest_v2.route('/cluster_op', methods=['GET', 'POST'])
@@ -236,8 +233,6 @@ def cluster_actions():
         return cluster_stop(r)
     elif action == "restart":
         return cluster_restart(r)
-    elif action == "fetch":
-        return cluster_fetch(r)
     elif action == 'update':
         return cluster_update(r)
     else:
@@ -326,24 +321,25 @@ def cluster_create():
                               data=config.get_data())
 
     application = json_decode(body['network'])
-    if not isinstance(application, dict) or not len(application.get('application', [])):
+    if not isinstance(application, dict) \
+            or not len(application.get('application', [])):
         return make_fail_resp(error="network config not validated",
                               data=body['network'])
 
     if config.consensus_plugin == CONSENSUS_PLUGIN_SOLO:
-        ordererOrg = Organization("OrdererOrg",
-                                  "orderer.example.com",
-                                  ["orderer0"])
+        orderer_org = Organization("OrdererOrg",
+                                   "orderer.example.com",
+                                   ["orderer0"])
     elif config.consensus_plugin == CONSENSUS_PLUGIN_KAFKA:
-        ordererOrg = Organization("OrdererOrg",
-                                  "orderer.example.com",
-                                  ["orderer0", "orderer1", "orderer2"])
+        orderer_org = Organization("OrdererOrg",
+                                   "orderer.example.com",
+                                   ["orderer0", "orderer1", "orderer2"])
     else:
         return make_fail_resp(error="consensus_plugin not supported",
                               data=config.get_data())
 
     network = ClusterNetwork(version=network_type,
-                             orderer=ordererOrg,
+                             orderer=orderer_org,
                              application=application.get('application'),
                              consensus=config.consensus_plugin)
 
@@ -504,4 +500,3 @@ def cluster_release_dep():
             return make_fail_resp(error=error_msg, data=data)
         else:
             return make_ok_resp()
-

@@ -45,6 +45,7 @@ class VsphereHost(HostBase):
             vc_resources = params.get(VCENTER)
 
         except Exception as e:
+            logger.error(e)
             error_msg = (
                 "Cannot complete login due"
                 "to an incorrect user name or password."

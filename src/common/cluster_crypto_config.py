@@ -1,7 +1,6 @@
-
 class cluster(dict):
     def __init__(self):
-        super(cluster, self).__init__ ()
+        super(cluster, self).__init__()
 
     def __setattr__(self, key, value):
         self[key] = value
@@ -22,7 +21,9 @@ class Organization(cluster):
 
 class ClusterNetwork(cluster):
 
-    def __init__(self, version=0, orderer={}, application=[], consensus="solo"):
+    def __init__(self, version=0, orderer={},
+                 application=[], consensus="solo"):
+
         self.__setattr__("orderer", orderer)
         self.__setattr__("application", application)
         self.__setattr__("version", version)
@@ -47,7 +48,6 @@ class ClusterUpdateV1(cluster):
         self.__setattr__("org", org)
         self.__setattr__("orderers_num", orderers_num)
         super(cluster, self).__init__()
-
 
 
 class ChannelComputeUpdateV1(object):

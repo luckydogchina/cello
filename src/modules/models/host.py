@@ -63,6 +63,7 @@ class Cluster(Document):
     external_port_start = IntField(default=0)
     version = IntField(default=0)
 
+
 class ClusterNetwork(Document):
     cluster = ReferenceField(Cluster, reverse_delete_rule=CASCADE)
     network = DictField(default={})
@@ -118,7 +119,7 @@ class ClusterSchema(Schema):
 
     def get_network(self, cluster):
         network = ClusterNetwork.objects.get(cluster=cluster,
-                                              version=cluster.version)
+                                             version=cluster.version)
         network = network.network
         return dict(network)
 
@@ -171,10 +172,3 @@ class HostSchema(Schema):
         clusters = Cluster.objects(host=host)
 
         return [str(cluster.id) for cluster in clusters]
-
-# class DeploymentSchema(Schema):
-#     deployments = fields.Method("get_deployments", dump_only=True)
-#     namespace
-#     def get_deployments(self, deployment):
-#         deployments = Deployment.objects()
-#         return [ for deployment in deployments]

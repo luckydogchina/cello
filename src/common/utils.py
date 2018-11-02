@@ -162,10 +162,11 @@ NODETYPE_PEER = "peer"
 NODETYPE_ORDERER = "orderer"
 NODETYPE_CA = "ca"
 NODETYPE_CLI = "cli"
-ELEMENT_PVC="pvc"
+ELEMENT_PVC = "pvc"
 
-EXTERNAL_SUB_MIX=31000
-EXTERNAL_SUB_MAX=32000
+EXTERNAL_SUB_MIX = 31000
+EXTERNAL_SUB_MAX = 32000
+
 
 def json_decode(jsonstr):
     try:
@@ -212,7 +213,7 @@ def request_json_body(request, default_value={}):
         return default_value
 
 
-def copytree(src, dst, symlinks=False, overwrite = None, ignore=None):
+def copytree(src, dst, symlinks=False, overwrite=None, ignore=None):
     '''
     :param src: the src is a dir
     :param dst: the dst is a dir
@@ -247,7 +248,8 @@ def copytree(src, dst, symlinks=False, overwrite = None, ignore=None):
                     # code with a custom `copy_function` may rely on copytree
                     # doing the right thing.
                     os.symlink(linkto, dstname)
-                    shutil.copystat(srcname, dstname, follow_symlinks=not symlinks)
+                    shutil.copystat(srcname, dstname,
+                                    follow_symlinks=not symlinks)
                 else:
                     # ignore dangling symlink if the flag is on
                     if not os.path.exists(linkto):
@@ -271,15 +273,15 @@ def copytree(src, dst, symlinks=False, overwrite = None, ignore=None):
         # catch the Error from the recursive copytree so that we can
         # continue with other files
         except shutil.Error as err:
-            errors.extend (err.args[0])
+            errors.extend(err.args[0])
         except OSError as why:
-            errors.append ((srcname, dstname, str (why)))
+            errors.append((srcname, dstname, str(why)))
     try:
         shutil.copystat(src, dst)
     except OSError as why:
         # Copying file access times may fail on Windows
-        if getattr (why, 'winerror', None) is None:
-            errors.append((src, dst, str (why)))
+        if getattr(why, 'winerror', None) is None:
+            errors.append((src, dst, str(why)))
     if errors:
         raise shutil.Error(errors)
     return dst

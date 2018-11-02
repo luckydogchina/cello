@@ -57,7 +57,8 @@ class ClusterOnVsphere(ClusterBase):
         return compose_stop(name, worker_api, mapped_ports, log_type,
                             log_level, log_server, config)
 
-    def update(self,cid, mapped_ports, host, config, user_id=""):
+    def update(self, cid, mapped_ports, host, config, user_id=""):
         return
+
 
 cluster_on_vsphere = ClusterOnVsphere()

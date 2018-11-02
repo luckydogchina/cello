@@ -24,7 +24,7 @@ from jinja2 import Template, Environment, FileSystemLoader
 from kubernetes import client, config
 from kubernetes.stream import stream
 
-from common import NODETYPE_ORDERER, ELEMENT_PVC ,\
+from common import NODETYPE_ORDERER, ELEMENT_PVC,\
     NODETYPE_PEER, NODETYPE_CA, NODETYPE_CLI
 
 from agent.client import crypto_client, modify
@@ -33,11 +33,12 @@ logger = logging.getLogger(__name__)
 logger.setLevel(LOG_LEVEL)
 logger.addHandler(log_handler)
 
+
 class Params(dict):
     def __init__(self):
         super(Params, self).__init__()
 
-    def set(self, key ,value):
+    def set(self, key, value):
         self[key] = value
 
     def copy(self):
@@ -45,11 +46,13 @@ class Params(dict):
         p.update(self)
         return p
 
+
 class Element(dict):
     def __init__(self, type, params):
         self["type"] = type
         self["params"] = params
         super(Element, self).__init__()
+
 
 class K8sClusterOperation():
     """
@@ -85,17 +88,20 @@ class K8sClusterOperation():
             resources_path = os.path.join('/resources', cluster_name)
             respond = crypto_client.init_fabric_network(ClusterEnvelop(
                 cluster_id=cluster_name,
-                net_work = cluster_config))
+                net_work=cluster_config))
 
             if respond.code != 200:
                 raise Exception(respond)
 
             common.copytree(resources_path, cluster_path)
-            genesis = os.path.join(cluster_path, "channel-artifacts", "genesis.block")
-            dst = os.path.join(cluster_path,"crypto-config",
+            genesis = os.path.join(cluster_path, "channel-artifacts",
+                                   "genesis.block")
+
+            dst = os.path.join(cluster_path, "crypto-config",
                                "ordererOrganizations",
-                               cluster_config.get("orderer",{}).get("domain"),
+                               cluster_config.get("orderer", {}).get("domain"),
                                "genesis.block")
+
             shutil.copy(genesis, dst)
         except Exception as e:
             error_msg = (
@@ -108,7 +114,7 @@ class K8sClusterOperation():
     def _delete_config_file(self, cluster_name):
         try:
             cluster_path = os.path.join('/cello', cluster_name)
-            #fsatat = os.fstat(cluster_path)
+            # fsatat = os.fstat(cluster_path)
             shutil.rmtree(cluster_path)
         except FileNotFoundError:
             return
@@ -117,11 +123,12 @@ class K8sClusterOperation():
                 "Failded to delete cluster files in NFS Server due "
                 "to incorrect parameters."
             )
-            logger.error("Deleteing Kubernetes cluster error msg: {}".format(e))
+            logger.error("Deleteing Kubernetes "
+                         "cluster error msg: {}".format(e))
             raise Exception(error_msg)
 
-    #transfer the config file to the k8s serveice.
-    #this function can be reused by `setup node`
+    # transfer the config file to the k8s serveice.
+    # this function can be reused by `setup node`
     def _render_config_file(self, file_name, cluster_name,
                             cluster_params, nfsServer_ip="", extend=False):
         # get template file's ports
@@ -132,11 +139,14 @@ class K8sClusterOperation():
         if ("namespace" not in file_name):
             if "peer" in file_name:
                 eventPort = cluster_params[file_name].get("eventPort", "")
-                chaincodePort = cluster_params[file_name].get("chaincodePort", "")
+                chaincodePort =\
+                    cluster_params[file_name].get("chaincodePort", "")
                 nodePort = cluster_params[file_name].get("nodePort", "")
                 if "x" in file_name and "y" in file_name:
-                    peerId = cluster_params[file_name].get("peerId", "")
-                    orgId = cluster_params[file_name].get("organizationId", "")
+                    peerId = \
+                        cluster_params[file_name].get("peerId", "")
+                    orgId = \
+                        cluster_params[file_name].get("organizationId", "")
                     mspId = orgId + 'MSP'
                     orgId = str(orgId).lower()
                     domain = cluster_params[file_name].get("domain", "")
@@ -158,8 +168,6 @@ class K8sClusterOperation():
                 domain = cluster_params[file_name].get("domain", "")
             else:
                 domain = cluster_params[file_name].get("domain", "")
-        #else:
-           # domain = cluster_params[file_name].get("domain")
 
         current_path = os.path.dirname(__file__)
         if not extend:
@@ -174,8 +182,8 @@ class K8sClusterOperation():
         )
         template = env.get_template(file_name)
 
-        #replace the Environment in the peer template
-        #clusterName externalPort chaincodePort  nodePort
+        # replace the Environment in the peer template
+        # clusterName externalPort chaincodePort  nodePort
         output = template.render(clusterName=cluster_name,
                                  eventPort=eventPort,
                                  chaincodePort=chaincodePort,
@@ -189,8 +197,8 @@ class K8sClusterOperation():
                                  mspId=mspId)
         return output
 
-    #exec the remote command
-    #this fuction can be used to join channel?
+    # exec the remote command
+    # this fuction can be used to join channel?
     def _pod_exec_command(self, pod_name, namespace, command):
         try:
             bash_command = ['/bin/bash', '-c', command]
@@ -212,7 +220,7 @@ class K8sClusterOperation():
         pod_list = []
         for i in ret.items:
             if (i.metadata.namespace == namespace and
-               i.metadata.name.startswith("cli")):
+                    i.metadata.name.startswith("cli")):
                 pod_list.append(i.metadata.name)
         return pod_list
 
@@ -228,7 +236,7 @@ class K8sClusterOperation():
         ret = self.corev1client.list_namespaced_pod(namespace, watch=False)
         pod_list = {}
         for i in ret.items:
-            #if i.metadata.namespace == namespace:
+            # if i.metadata.namespace == namespace:
             pod_list[i.metadata.name] = i.metadata.uid
 
         return pod_list
@@ -254,33 +262,35 @@ class K8sClusterOperation():
         logger.info("nodes : {}".format(nodes))
 
         pod_list = list(filter(lambda i: i.metadata.labels is not None,
-                                 kube_pods.items))
+                               kube_pods.items))
         pods = {}
         for pod in pod_list:
             if (pod.metadata.labels.get('org') == 'kafkacluster') \
                     or (pod.metadata.labels.get('app') == 'cli'):
                 continue
 
-            pod_ip = nodes.get (pod.spec.node_name, None)
+            pod_ip = nodes.get(pod.spec.node_name, None)
             if pod_ip is None:
                 continue
 
             name_list = ['name', 'peer-id', 'orderer-id']
+            name = str()
             for e in name_list:
                 name = pod.metadata.labels.get(e, None)
                 if name is not None:
                     break
 
-            pod_id = "{}_{}_{}_{}".format (pod.metadata.labels.get('app', ""),
-                                           pod.metadata.labels.get('org', ""),
-                                           pod.metadata.labels.get('role', ""),
-                                           name, )
+            pod_id = "{}_{}_{}_{}".format(pod.metadata.labels.get('app', ""),
+                                          pod.metadata.labels.get('org', ""),
+                                          pod.metadata.labels.get('role', ""),
+                                          name)
+
             pods[pod_id] = {'pod_name': pod.metadata.name,
                             'node_name': pod.spec.node_name,
                             'labels': pod.metadata.labels,
                             'address': pod_ip}
 
-        logger.info("pods : {}".format (pods))
+        logger.info("pods : {}".format(pods))
         return pods
 
     def _gen_service_url(self, kube_services, kube_pods):
@@ -305,10 +315,11 @@ class K8sClusterOperation():
                 if name is not None:
                     break
 
-            select_id = "{}_{}_{}_{}".format(service['selector'].get('app', ""),
-                                             service['selector'].get('org', ""),
-                                             service['selector'].get('role', ""),
-                                             name, )
+            select_id = \
+                "{}_{}_{}_{}".format(service['selector'].get('app', ""),
+                                     service['selector'].get('org', ""),
+                                     service['selector'].get('role', ""),
+                                     name, )
 
             pod = kube_pods.get(select_id, None)
             if pod is None:
@@ -355,16 +366,16 @@ class K8sClusterOperation():
         for service in services:
             template = service['address'] + ":" + "{}"
             name = service['service_name'].replace("-", "_")
-            key = service['selector'].get ('role')
+            key = service['selector'].get('role')
 
             if key is None:
                 key = service['selector'].get('app')
             try:
                 switch[key](service)
             except KeyError as e:
-                pass
+                logger.error("key error {}".format(e))
 
-        logger.debug("service external port: {}".format (results))
+        logger.debug("service external port: {}".format(results))
         return results
 
     def _create_deployment(self, namespace, data, **kwargs):
@@ -381,7 +392,7 @@ class K8sClusterOperation():
             logger.error(e)
             return False, None
 
-    #create a service in k8s
+    # create a service in k8s
     def _create_service(self, namespace, data, **kwargs):
         try:
             resp = self.corev1client.create_namespaced_service(namespace,
@@ -396,7 +407,7 @@ class K8sClusterOperation():
             logger.error(e)
             return False, None
 
-    #create a persistent volume in k8s
+    # create a persistent volume in k8s
     def _create_persistent_volume_claim(self, namespace, data, **kwargs):
         try:
             resp = self.corev1client.\
@@ -498,10 +509,11 @@ class K8sClusterOperation():
     def _delete_replica_set(self, name, namespace, data, **kwargs):
         try:
             # delete_namespaced_service does not need data actually.
-            resp = self.extendv1client.delete_namespaced_replica_set(name,
-                                                               namespace,
-                                                               data,
-                                                               **kwargs)
+            resp = \
+                self.extendv1client.delete_namespaced_replica_set(name,
+                                                                  namespace,
+                                                                  data,
+                                                                  **kwargs)
             logger.debug(resp)
             return True, resp
         except client.rest.ApiException as e:
@@ -549,7 +561,7 @@ class K8sClusterOperation():
                                                                   name,
                                                                   kind)
             logger.info(logs)
-            if save != None:
+            if save is not None:
                 save(self._fomart_yaml_data(data))
 
             if kind in self.support_namespace:
@@ -565,11 +577,11 @@ class K8sClusterOperation():
         return True
 
     def _delete_k8s_resource(self, yaml_data):
-        data = yaml_data;
-        #for data in yaml_data:
+        data = yaml_data
+
         if data is None:
-            # continue
             return
+
         kind = data.get('kind', None)
         name = data.get('metadata').get('name', None)
         namespace = data.get('metadata').get('namespace', None)
@@ -582,7 +594,9 @@ class K8sClusterOperation():
         logger.info(logs)
 
         if kind in self.support_namespace:
-            isOk, resp = self.delete_func_dict.get(kind)(name, namespace, delete_data)
+            isOk, resp = self.delete_func_dict.get(kind)(name,
+                                                         namespace,
+                                                         delete_data)
         else:
             isOk, resp = self.delete_func_dict.get(kind)(name, delete_data)
 
@@ -616,60 +630,64 @@ class K8sClusterOperation():
         file_data = self._render_config_file("peerx.orgy.tpl",
                                              cluster_name,
                                              node_params,
-                                             extend=True);
+                                             extend=True)
 
-        yaml_data = yaml.load_all(file_data);
-        return self._deploy_k8s_resource(yaml_data, save);
+        yaml_data = yaml.load_all(file_data)
+        return self._deploy_k8s_resource(yaml_data, save)
 
     # add a orderer
     def _deploy_node_orderer(self, cluster_name, node_params,
                              consensus=CONSENSUS_PLUGIN_KAFKA, save=None):
         if consensus == CONSENSUS_PLUGIN_KAFKA:
             file_data = self._render_config_file("ordererx.kafka.tpl",
-                                                  cluster_name,
-                                                  node_params,
-                                                  extend=True);
+                                                 cluster_name,
+                                                 node_params,
+                                                 extend=True)
         elif consensus == CONSENSUS_PLUGIN_SOLO:
             file_data = self._render_config_file("ordererx.solo.tpl",
-                                                  cluster_name,
-                                                  node_params,
-                                                  extend=True);
-        yaml_data = yaml.load_all(file_data);
-        return self._deploy_k8s_resource(yaml_data, save);
+                                                 cluster_name,
+                                                 node_params,
+                                                 extend=True)
+        yaml_data = yaml.load_all(file_data)
+        return self._deploy_k8s_resource(yaml_data, save)
 
     def _deploy_node_ca(self, cluster_name, node_params, save=None):
         domain = node_params.get("orgx.ca.tpl").get("domain", None)
         if domain is None:
             return
-        ca_path = os.path.join("/cello", cluster_name, "crypto-config", "peerOrganizations", domain, "ca")
 
-        for (dir_path, dir_name, file_list) in os.walk (ca_path):
+        ca_path = os.path.join("/cello", cluster_name,
+                               "crypto-config",
+                               "peerOrganizations",
+                               domain, "ca")
+
+        for (dir_path, dir_name, file_list) in os.walk(ca_path):
             for file in file_list:
                 if "_sk" in file:
                     node_params["orgx.ca.tpl"]["prvKey"] = file
                     break
 
         file_data = self._render_config_file("orgx.ca.tpl",
-                                              cluster_name,
-                                              node_params,
-                                              extend=True);
+                                             cluster_name,
+                                             node_params,
+                                             extend=True)
 
-        yaml_data = yaml.load_all (file_data);
-        return self._deploy_k8s_resource(yaml_data, save);
+        yaml_data = yaml.load_all(file_data)
+        return self._deploy_k8s_resource(yaml_data, save)
 
     # add a organization msp file to pv
     def deploy_org_pvc(self, cluster_name, nfsServer_ip, params, save=None):
-        pv_params={
+        pv_params = {
             "orgx.pvc.tpl": params
         }
 
         file_data = self._render_config_file("orgx.pvc.tpl",
                                              cluster_name, pv_params,
                                              nfsServer_ip,
-                                             extend=True);
+                                             extend=True)
 
         yaml_data = yaml.load_all(file_data)
-        if not  self._deploy_k8s_resource(yaml_data, save):
+        if not self._deploy_k8s_resource(yaml_data, save):
             return None
 
         return self._get_cluster_pods(cluster_name)
@@ -680,31 +698,35 @@ class K8sClusterOperation():
             add a node to one cluster that has been exists.
             create a peer or orderer node;
 
-            :param str cluster_name: the cluster name, we can get paraments from db by the  cluster_name.
+            :param str cluster_name: the cluster name, we can get paraments
+            from db by the  cluster_name.
             :param json ports_index: the ports had been used.
-            :param int external_port_start: the start port in the cluster that named cluster_name
+            :param int external_port_start: the start port in the cluster
+             that named cluster_name
             :param json params:
                     nodeId: one peer id or orderer id
                     orgId: the organization that new node belongs to
             :param str node_type: peer or orderer
         """
         isOK = True
-        if node_type==NODETYPE_PEER:
+        if node_type == NODETYPE_PEER:
             node_params = {
                 "peerx.orgy.tpl": params
-            };
+            }
 
-            isOK = self._deploy_node_peer(cluster_name, node_params, save);
+            isOK = self._deploy_node_peer(cluster_name, node_params, save)
         elif node_type == NODETYPE_ORDERER:
             node_params = {
                 "ordererx.kafka.tpl": params
-            };
+            }
 
-            isOK = self._deploy_node_orderer(cluster_name, node_params, save=save);
+            isOK = self._deploy_node_orderer(cluster_name,
+                                             node_params,
+                                             save=save)
         elif node_type == NODETYPE_CA:
             node_params = {
                 "orgx.ca.tpl": params
-            };
+            }
 
             isOK = self._deploy_node_ca(cluster_name, node_params, save)
         elif node_type == NODETYPE_CLI:
@@ -717,8 +739,7 @@ class K8sClusterOperation():
     def _deploy_cluster_resource(self, cluster_name,
                                  current_port, nfsServer_ip,
                                  cluster_config, save=None):
-
-        consensus = cluster_config.get("consensus");
+        consensus = cluster_config.get("consensus")
         if consensus != CONSENSUS_PLUGIN_KAFKA and \
                 consensus != CONSENSUS_PLUGIN_SOLO:
             logger.error("the cluster: {} is wrong consensus "
@@ -732,61 +753,61 @@ class K8sClusterOperation():
         if not self._deploy_k8s_resource(yaml_data, save):
             return False
 
-        # time.sleep(3)
         ca_start = current_port
         orderer_start = current_port + CA_PORTS_UPPER_LIMIT
-        peer_start= orderer_start + ORDERER_PORTS_UPPER_LIMIT
+        peer_start = orderer_start + ORDERER_PORTS_UPPER_LIMIT
         for org in cluster_config.get("application", []):
             # deploy the pvc
             pv_params = {
                 "orgx.pvc.tpl": {
-                    "organizationId": org.get("org_name"), #str().lower(),
+                    "organizationId": org.get("org_name"),
                     "nfsServer": nfsServer_ip,
                     "domain": org.get("domain")
                 }
             }
 
-            file_data = self._render_config_file("orgx.pvc.tpl", cluster_name,
-                                                  pv_params, nfsServer_ip, True)
+            file_data = self._render_config_file("orgx.pvc.tpl",
+                                                 cluster_name,
+                                                 pv_params,
+                                                 nfsServer_ip,
+                                                 True)
+
             yaml_data = yaml.load_all(file_data)
             if not self._deploy_k8s_resource(yaml_data, save):
                 return False
-            # time.sleep(3)
 
             # deploy the ca
             ca_params = {
                 "orgx.ca.tpl": {
                     "nodePort": str(ca_start),
-                    "organizationId": org.get("org_name"), #str().lower(),
-                    "domain": org.get ("domain")
+                    "organizationId": org.get("org_name"),
+                    "domain": org.get("domain")
                 }
-            };
+            }
 
             if not self._deploy_node_ca(cluster_name, ca_params, save):
                 return False
-            ca_start += 1;
-            # time.sleep(3)
+            ca_start += 1
 
-            for peer in org.get("peers",""):
+            for peer in org.get("peers", ""):
                 peer_params = {
                     "peerx.orgy.tpl": {
                         "nodePort": str(peer_start),
                         "chaincodePort": str(peer_start + 1),
                         "eventPort": str(peer_start + 2),
                         "peerId": peer,
-                        "organizationId": org.get("org_name"), #str().lower(),
+                        "organizationId": org.get("org_name"),
                         "domain": org.get("domain")
                     }
-                };
+                }
 
                 if not self._deploy_node_peer(cluster_name, peer_params, save):
                     return False
 
-                peer_start += 3;
-                # time.sleep(3)
+                peer_start += 3
 
         # deploy the orderers
-        orderer_org = deepcopy(cluster_config.get("orderer",{}))
+        orderer_org = deepcopy(cluster_config.get("orderer", {}))
         orderer_org["org_name"] = "ordererorg"
 
         # deploy orderer org pv
@@ -795,20 +816,27 @@ class K8sClusterOperation():
                 "domain": orderer_org.get("domain", "")
             }
         }
-        file_data = self._render_config_file("ordererorg.pvc.tpl", cluster_name,
-                                              pv_params, nfsServer_ip, False)
+
+        file_data = self._render_config_file("ordererorg.pvc.tpl",
+                                             cluster_name,
+                                             pv_params,
+                                             nfsServer_ip,
+                                             False)
+
         yaml_data = yaml.load_all(file_data)
         if not self._deploy_k8s_resource(yaml_data, save):
             return False
-        # time.sleep (3)
 
         if consensus == CONSENSUS_PLUGIN_KAFKA:
             kafka_params = {
                 "kafka.tpl": {
                 }
             }
+
             file_data = self._render_config_file("kafka.tpl", cluster_name,
-                                                 kafka_params, nfsServer_ip, False)
+                                                 kafka_params, nfsServer_ip,
+                                                 False)
+
             yaml_data = yaml.load_all(file_data)
             self._deploy_k8s_resource(yaml_data, save)
             time.sleep(3)
@@ -821,11 +849,12 @@ class K8sClusterOperation():
                         "organizationId": orderer_org.get('org_name'),
                         "domain": orderer_org.get("domain")
                     }
-                };
+                }
 
-                if not self._deploy_node_orderer(cluster_name, node_params, save=save):
+                if not self._deploy_node_orderer(cluster_name, node_params,
+                                                 save=save):
                     return False
-                orderer_start +=1
+                orderer_start += 1
 
         else:
             orderers = orderer_org.get("peers", "")
@@ -836,10 +865,11 @@ class K8sClusterOperation():
                     "organizationId": orderer_org.get('org_name'),
                     "domain": orderer_org.get("domain")
                 }
-            };
+            }
 
             if not self._deploy_node_orderer(cluster_name, node_params,
-                                             consensus=CONSENSUS_PLUGIN_SOLO, save=save):
+                                             consensus=CONSENSUS_PLUGIN_SOLO,
+                                             save=save):
                 return False
 
         return True
@@ -869,12 +899,11 @@ class K8sClusterOperation():
         self._upload_config_file(cluster_name, cluster_config)
         time.sleep(1)
 
-        # cluster_ports = self._get_cluster_ports(ports_index, external_port_start)
         isOK = self._deploy_cluster_resource(cluster_name,
-                                      external_port_start,
-                                      nfsServer_ip,
-                                      cluster_config,
-                                      save)
+                                             external_port_start,
+                                             nfsServer_ip,
+                                             cluster_config,
+                                             save)
         if not isOK:
             return None
 
@@ -893,13 +922,15 @@ class K8sClusterOperation():
 
         # setup the ordererorg cli
         node_params = {
-            "ordererorg.cli.tpl":{
-                "domain": cluster_config.get("orderer",{}).get("domain"),
+            "ordererorg.cli.tpl": {
+                "domain": cluster_config.get("orderer", {}).get("domain"),
             }
         }
 
-        file_data = self._render_config_file("ordererorg.cli.tpl", cluster_name,
-                                 node_params, nfsServer_ip)
+        file_data = self._render_config_file("ordererorg.cli.tpl",
+                                             cluster_name,
+                                             node_params,
+                                             nfsServer_ip)
 
         yaml_data = yaml.load_all(file_data)
         self._deploy_k8s_resource(yaml_data, save)
@@ -907,7 +938,6 @@ class K8sClusterOperation():
         time.sleep(3)
 
         return self._get_cluster_pods(cluster_name)
-
 
     def delete_resources(self, docs_deployments):
         self._delete_cluster_resource(docs_deployments)
@@ -918,7 +948,6 @@ class K8sClusterOperation():
         """
         for deployment in docs_deployments:
             self._delete_k8s_resource(deployment.data)
-            #time.sleep(1)
 
     def delete_cluster(self, cluster_name, docs_deployment, delete_config):
         self._delete_cluster_resource(docs_deployment)
@@ -929,7 +958,8 @@ class K8sClusterOperation():
             time.sleep(3)
 
         while True:
-            logger.info("cleaning the namespace {} ... ...".format(cluster_name))
+            logger.info("cleaning the namespace "
+                        "{} ... ...".format(cluster_name))
             namespaces = self.corev1client.list_namespace()
             namespace_list = [n.metadata.name for n in namespaces.items]
             if cluster_name not in namespace_list:
@@ -942,7 +972,8 @@ class K8sClusterOperation():
         if delete_config:
             respond = crypto_client.delete_fabric_network(cluster_name)
             if respond.code != 200:
-                logger.error("delete config in crypot server : {}".format(respond))
+                logger.error("delete config in "
+                             "crypot server : {}".format(respond))
                 return False
 
         return True
@@ -950,11 +981,13 @@ class K8sClusterOperation():
     def stop_cluster(self, cluster_name, doc_deployments):
         kind_dict = ['Deployment', 'Service', ]
 
-        # explorer_datas = []
         deployments = []
         delete_list = []
 
         for deployment in doc_deployments:
+            if 'cli' in deployment.name:
+                continue
+
             if deployment.kind not in kind_dict:
                 continue
 
@@ -971,7 +1004,8 @@ class K8sClusterOperation():
         time.sleep(2)
 
         while True:
-            logger.info("cleaning the namespace {} ... ...".format(cluster_name))
+            logger.info("stop the cluster"
+                        " {} ... ...".format(cluster_name))
             pods = self.corev1client.list_namespaced_pod(cluster_name)
             pods_list = [n.metadata.name for n in pods.items]
             if len(pods_list) == 1:
@@ -981,15 +1015,15 @@ class K8sClusterOperation():
         return True
 
     def start_cluster(self, cluster_name, doc_deployments):
-        # kind_dict = ['Namespace','PersistentVolume',
-        #              'PersistentVolumeClaim',
-        #              'Deployment', 'Service', ]
-        kind_dict = ['Deployment', 'Service', ]
+        kind_dict = ['Deployment', 'Service']
 
         explorer_datas = []
-        cluster_datas=[]
+        cluster_datas = []
 
         for deployment in doc_deployments:
+            if 'cli' in deployment.name:
+                continue
+
             if deployment.kind in kind_dict:
                 if 'explorer' in deployment.name:
                     explorer_datas.append(deployment.data)
@@ -999,7 +1033,6 @@ class K8sClusterOperation():
         self._deploy_k8s_resource(cluster_datas)
 
         time.sleep(2)
-        # self._deploy_k8s_resource(explorer_datas)
         return self._get_cluster_pods(cluster_name)
 
     def _fomart_yaml_data(self, data):
@@ -1029,18 +1062,18 @@ class K8sClusterOperation():
     def _update_delete(self, cluster_name, original, update):
         delete_list = []
         delete_orderers = []
+
         # check the application organization
-        original_orgs = dict((org.get("org_name",""), org)
+        original_orgs = dict((org.get("org_name", ""), org)
                              for org in original.get("application", []))
-        update_orgs = dict((org.get("org_name",""), org)
-                        for org in update.get("application", []))
+        update_orgs = dict((org.get("org_name", ""), org)
+                           for org in update.get("application", []))
 
         delete_orgs = list(filter(lambda x: update_orgs.get(x, None) is None,
                                   original_orgs.keys()))
 
         for org_name in delete_orgs:
             original_org = original_orgs.get(org_name)
-            #org_name = org_name.lower()
             id = cluster_name + "-" + org_name + "-pvc"
             delete_list.append(id.lower())
             id = cluster_name + "-" + org_name + "-pv"
@@ -1057,7 +1090,6 @@ class K8sClusterOperation():
         for org_name, original_org in original_orgs.items():
             org_name = original_org.get("org_name")
             update_org = update_orgs.get(org_name)
-            #org_name = org_name.lower()
 
             for original_peer in original_org.get("peers"):
                 is_find = False
@@ -1093,13 +1125,14 @@ class K8sClusterOperation():
         new_orderers = []
 
         original_orgs = dict((org.get("org_name", ""), org)
-                              for org in original.get("application", []))
+                             for org in original.get("application", []))
         update_orgs = dict((org.get("org_name", ""), org)
-                            for org in update.get("application", []))
+                           for org in update.get("application", []))
 
         new_orgs = list(filter(lambda x: original_orgs.get(x, None) is None,
-                                    update_orgs.keys()))
+                        update_orgs.keys()))
 
+        original_peer = str()
         for org_name in new_orgs:
             update_org = update_orgs.get(org_name)
 
@@ -1120,10 +1153,9 @@ class K8sClusterOperation():
 
             update_orgs.pop(org_name)
 
-
         for org_name, update_org in update_orgs.items():
             params = Params()
-            params.set("organizationId", update_org.get('org_name')) #str().lower())
+            params.set("organizationId", update_org.get('org_name'))
             params.set("domain", update_org.get("domain"))
 
             original_org = original_orgs.get(org_name)
@@ -1165,50 +1197,65 @@ class K8sClusterOperation():
         for e in new_elements:
             if e.get("type", "") == NODETYPE_PEER:
                 param = e.get("params", "")
-                id = param.get("peerId")+ "-" + str(param.get("organizationId")).lower()
-                delete_list.append(id)
+                identity = \
+                    param.get("peerId") + "-" + \
+                    str(param.get("organizationId")).lower()
+                delete_list.append(identity)
             elif e.get("type", "") == NODETYPE_ORDERER:
                 param = e.get("params", "")
-                id = param.get("ordererId") + "-" + str(param.get("organizationId")).lower()
-                delete_list.append(id)
+                identity = param.get("ordererId") + "-" + \
+                    str(param.get("organizationId")).lower()
+                delete_list.append(identity)
             elif e.get("type", "") == NODETYPE_CA:
                 param = e.get("params", "")
-                id = "ca-" + param.get("organizationId")
-                delete_list.append(id.lower())
+                identity = "ca-" + param.get("organizationId")
+                delete_list.append(identity.lower())
             elif e.get("type", "") == ELEMENT_PVC:
                 param = e.get("params", "")
-                id = cluster_name + "-" + str(param.get("organizationId")).lower() + "-pvc"
-                delete_list.append(id.lower())
-                id = cluster_name + "-" + str(param.get("organizationId")).lower() + "-pv"
-                delete_list.append(id.lower())
+                identity = cluster_name + "-" + \
+                    str(param.get("organizationId")).lower() + "-pvc"
+                delete_list.append(identity.lower())
+                identity = cluster_name + "-" + \
+                    str(param.get("organizationId")).lower() + "-pv"
+                delete_list.append(identity.lower())
 
         return delete_list
 
     def _fetch_config(self, cluster_name, orderer):
         pod_commands = ["peer channel fetch config  -c e2e-orderer-syschan -o "
-                        + orderer + ":7050 resources/channel-artifacts/config.pb "
+                        + orderer + ":7050"
+                        + " resources/channel-artifacts/config.pb "
                         + " --tls  --cafile $CORE_PEER_TLS_ROOTCERT_FILE",
                         "chmod +666 resources/channel-artifacts/config.pb",
-                        "peer channel signconfigtx -f resources/channel-artifacts/config_update.tx",
+                        "peer channel signconfigtx "
+                        + " -f resources/channel-artifacts/config_update.tx",
                         "peer channel update -c e2e-orderer-syschan -o "
-                        + orderer + ":7050 -f resources/channel-artifacts/config_update.tx"
+                        + orderer + ":7050"
+                        + " -f resources/channel-artifacts/config_update.tx"
                         + " --tls  --cafile $CORE_PEER_TLS_ROOTCERT_FILE", ]
 
         pod_list = self._filter_cli_pod_name(cluster_name)
-        pods = list(filter(lambda x: 'cli' in x and "ordererorg" in x, pod_list))
+        pods = list(filter(lambda x: 'cli' in x and "ordererorg" in x,
+                           pod_list))
         if len(pods) == 0:
             logger.error("the cli-orderer is not existed.")
             return False
 
         check_times = 5
-        config_pb = os.path.join("/cello", cluster_name, "channel-artifacts/config.pb")
+        config_pb = os.path.join("/cello",
+                                 cluster_name,
+                                 "channel-artifacts/config.pb")
         while check_times:
-            if not self._pod_exec_command(pods[0], cluster_name, pod_commands[0]):
+            if not self._pod_exec_command(pods[0],
+                                          cluster_name,
+                                          pod_commands[0]):
                 logger.error("fetch the system channel config failure")
                 return False
             time.sleep(3)
 
-            if not self._pod_exec_command(pods[0], cluster_name, pod_commands[1]):
+            if not self._pod_exec_command(pods[0],
+                                          cluster_name,
+                                          pod_commands[1]):
                 logger.error("chmod the config.pb +666 failure")
                 return False
             time.sleep(3)
@@ -1222,8 +1269,11 @@ class K8sClusterOperation():
 
         return True
 
-    def _generate_config_update(self, cluster_name, new_orgs, delete_orgs, delete_orderers, new_orderes):
-        config_pb = os.path.join("/cello", cluster_name, "channel-artifacts/config.pb")
+    def _generate_config_update(self, cluster_name, new_orgs,
+                                delete_orgs, delete_orderers,
+                                new_orderes):
+        config_pb = os.path.join("/cello", cluster_name,
+                                 "channel-artifacts/config.pb")
         fp = open(config_pb, "rb+")
         data = fp.read()
         fp.close()
@@ -1240,7 +1290,9 @@ class K8sClusterOperation():
         deepTrees = ["channel_group", "groups", "Consortiums",
                      "groups", "SampleConsortium", "groups"]
         for org_name in new_orgs:
-            respond = crypto_client.fetch_organization_config(cluster_name, org_name)
+            respond =\
+                crypto_client.fetch_organization_config(cluster_name,
+                                                        org_name)
             if respond.code != 200:
                 logger.error("fetch_organization_config:", respond)
                 return False
@@ -1258,13 +1310,16 @@ class K8sClusterOperation():
         modify.insert_elements(deepTrees, modify_json, new_orderes)
 
         compute_update = ChannelComputeUpdateV1(config_json, modify_json)
-        respond = crypto_client.compute_update(compute_update, "fabric-1.2", "e2e-orderer-syschan")
+        respond = crypto_client.compute_update(compute_update,
+                                               "fabric-1.2",
+                                               "e2e-orderer-syschan")
         if respond.code != 200:
             logger.error("compute_update:{}".format(respond))
             return False
 
         data = respond.fp.read()
-        config_update_tx = os.path.join("/cello", cluster_name, "channel-artifacts/config_update.tx")
+        config_update_tx = os.path.join("/cello", cluster_name,
+                                        "channel-artifacts/config_update.tx")
         fp = open(config_update_tx, "wb+")
         fp.write(data)
         fp.close()
@@ -1274,33 +1329,43 @@ class K8sClusterOperation():
     def _update_config(self, cluster_name, orderer, new_orgs, new_orderers):
 
         pod_commands = ["peer channel fetch config  -c e2e-orderer-syschan -o "
-                        + orderer + ":7050 resources/channel-artifacts/config.pb "
+                        + orderer + ":7050"
+                        + " resources/channel-artifacts/config.pb "
                         + " --tls  --cafile $CORE_PEER_TLS_ROOTCERT_FILE",
                         "chmod +666 resources/channel-artifacts/config.pb",
-                        "peer channel signconfigtx -f resources/channel-artifacts/config_update.tx",
+                        "peer channel signconfigtx"
+                        + " -f resources/channel-artifacts/config_update.tx",
                         "peer channel update -c e2e-orderer-syschan -o "
-                        + orderer + ":7050 -f resources/channel-artifacts/config_update.tx"
+                        + orderer + ":7050"
+                        + " -f resources/channel-artifacts/config_update.tx"
                         + " --tls  --cafile $CORE_PEER_TLS_ROOTCERT_FILE", ]
 
         pod_list = self._filter_cli_pod_name(cluster_name)
-        pods = list(filter(lambda x: 'cli' in x and "ordererorg" in x, pod_list))
+        pods = list(filter(lambda x: 'cli' in x and "ordererorg" in x,
+                           pod_list))
         if len(pods) == 0:
             logger.error("the cli-orderer is not existed.")
             return False
 
         check_times = 5
         while check_times:
-            if not self._pod_exec_command(pods[0], cluster_name, pod_commands[2]):
+            if not self._pod_exec_command(pods[0],
+                                          cluster_name,
+                                          pod_commands[2]):
                 logger.error("signature configtx failure")
                 return False
             time.sleep(3)
 
-            if not self._pod_exec_command(pods[0], cluster_name, pod_commands[3]):
+            if not self._pod_exec_command(pods[0],
+                                          cluster_name,
+                                          pod_commands[3]):
                 logger.error("update the channel config failure")
                 return False
             time.sleep(3)
 
-            config_pb = os.path.join("/cello", cluster_name, "channel-artifacts/config.pb")
+            config_pb = os.path.join("/cello",
+                                     cluster_name,
+                                     "channel-artifacts/config.pb")
             os.remove(config_pb)
             if not self._fetch_config(cluster_name, orderer):
                 return False
@@ -1318,23 +1383,25 @@ class K8sClusterOperation():
             respond.close()
 
             is_ok = True
-            deepTrees = ["channel_group", "groups", "Consortiums",
-                         "groups", "SampleConsortium", "groups"]
+            deep_trees = ["channel_group", "groups", "Consortiums",
+                          "groups", "SampleConsortium", "groups"]
             for org in new_orgs:
-                res = modify.find_key(deepTrees, config_json, org)
+                res = modify.find_key(deep_trees, config_json, org)
                 if res is not True:
-                    is_ok = False; break
+                    is_ok = False
+                    break
 
             if not is_ok:
                 check_times -= 1
                 continue
 
-            deepTrees = ["channel_group", "values",
-                         "OrdererAddresses", "value", "addresses"]
+            deep_trees = ["channel_group", "values",
+                          "OrdererAddresses", "value", "addresses"]
             for e in new_orderers:
-                res = modify.find_element(deepTrees, config_json, e)
+                res = modify.find_element(deep_trees, config_json, e)
                 if res is not True:
-                    is_ok= False; break
+                    is_ok = False
+                    break
 
             if is_ok:
                 return True
@@ -1358,26 +1425,25 @@ class K8sClusterOperation():
                 net_work=cluster_config))
 
             if respond.code != 200:
-                logger.error ("update_fabric_network:{}".format (respond))
+                logger.error("update_fabric_network:{}".format(respond))
                 raise respond
 
-        cluster_path = os.path.join ('/cello', cluster_name)
-        resources_path = os.path.join ('/resources', cluster_name)
+        cluster_path = os.path.join('/cello', cluster_name)
+        resources_path = os.path.join('/resources', cluster_name)
 
         common.copytree(resources_path, cluster_path,
-                         overwrite=self.__overwrite,
-                         ignore=self.__ignore)
+                        overwrite=self.__overwrite,
+                        ignore=self.__ignore)
 
         def _run_update():
-            #return False
             logger.info("start to update the {} cluster".format(cluster_name))
             updates = len(new_orgs) + len(new_orderes) + \
-                      len(delete_orgs) + len(delete_orderers)
+                len(delete_orgs) + len(delete_orderers)
 
             if not updates:
                 return True
 
-            orderers = original_config.get("orderer",{}).get("peers",[])
+            orderers = original_config.get("orderer", {}).get("peers", [])
 
             # Fetch the system channel last config.block
             if not self._fetch_config(cluster_name, orderers[0]):
@@ -1390,40 +1456,48 @@ class K8sClusterOperation():
                 return False
 
             # Update the system channel config
-            if not self._update_config(cluster_name, orderers[0], new_orgs, new_orderes):
+            if not self._update_config(cluster_name, orderers[0],
+                                       new_orgs, new_orderes):
                 return False
 
-            logger.info("update the {} cluster successfully".format(cluster_name))
+            logger.info("update the {} cluster"
+                        " successfully".format(cluster_name))
             return True
 
         return delete_list, new_list, _run_update
 
     def __overwrite(self, srcname, dstname):
         if '.yaml' in srcname:
-            shutil.copy2 (srcname, dstname)
+            shutil.copy2(srcname, dstname)
         return
 
     def __ignore(self, src, names):
-        ignore = lambda x: '.josn' in x \
-                           or 'update' in x \
-                           or '.pb' in x
-        names = list(filter(ignore, names))
+
+        names = list(filter(lambda x: '.josn' in x
+                                      or 'update' in x
+                                      or '.pb' in x, names))
         return names
 
-    def pod_replica_delete_list(self, cluster_name, delete_list=[], deployments=[]):
-        replicas = self.extendv1client.list_namespaced_replica_set(cluster_name)
+    def pod_replica_delete_list(self, cluster_name,
+                                delete_list=[], deployments=[]):
+        replicas = \
+            self.extendv1client.list_namespaced_replica_set(cluster_name)
         pods = self.corev1client.list_namespaced_pod(cluster_name)
 
-        replica_lists = [replica.metadata.name  for replica in replicas.items]
+        replica_lists = [replica.metadata.name for replica in replicas.items]
         pod_lists = [pod.metadata.name for pod in pods.items]
 
-        replica_lists = list(filter(lambda x: True in [n in x for n in delete_list], replica_lists))
-        pod_lists = list(filter(lambda x: True in [n in x for n in delete_list], pod_lists))
+        replica_lists = \
+            list(filter(lambda x: True in [n in x for n in delete_list],
+                        replica_lists))
+        pod_lists = \
+            list(filter(lambda x: True in [n in x for n in delete_list],
+                        pod_lists))
         for name in replica_lists:
             data = Params()
             data.set('kind', 'ReplicaSet')
             data.set('metadata', {'name': name,
-                                'namespace': cluster_name})
+                                  'namespace': cluster_name})
 
             deployment = Deployment()
             deployment.data = data

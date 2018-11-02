@@ -54,75 +54,11 @@ services:
       - TEMPLATE_FOLDER=$TEMPLATE_FOLDER
       - ENABLE_EMAIL_ACTIVE=$ENABLE_EMAIL_ACTIVE
     ports:
-      - "8080:8080"
+      - "8081:8081"
     volumes:  # This should be removed in product env
       - ./src/agent/docker/_compose_files:/cello
       - ./src:/app
 
- #TODO: need to follow other images to put at dockerhub
-  user-dashboard:
-    image: hyperledger/cello-user-dashboard
-    container_name: cello-user-dashboard
-    hostname: cello-user-dashboard
-    links:
-      - mongo:dashboard_mongo
-      - dashboard_mongo
-      - operator-dashboard
-    ports:
-      - "8081:8081"
-    environment:
-      - NODE_ENV=dev
-      - RESTFUL_SERVER=operator-dashboard:8080
-      - DEBUG=node:*
-      - DEV=$DEV
-      - LOG_LEVEL=$LOG_LEVEL
-      - ENABLE_EMAIL_ACTIVE=$ENABLE_EMAIL_ACTIVE
-      - SMTP_SERVER=$SMTP_SERVER
-      - SMTP_PORT=$SMTP_PORT
-      - SMTP_AUTH_USERNAME=$SMTP_AUTH_USERNAME
-      - SMTP_AUTH_PASSWORD=$SMTP_AUTH_PASSWORD
-      - MONGO_HOST=dashboard_mongo
-      - MONGO_DB=user_dashboard
-      - FROM_EMAIL=$FROM_EMAIL
-      - WEBROOT=$USER_DASHBOARD_WEBROOT
-      - FABRIC_CFG_PATH=/etc/hyperledger/fabric
-    volumes:
-      - ./user-dashboard/src:/var/www
-      - /opt/cello/baas:/opt/data
-
-  # cello engine service
-  engine:
-    image: hyperledger/cello-engine
-    container_name: cello-engine
-    hostname: cello-engine
-    restart: unless-stopped
-    environment:
-      - MONGO_URL=mongodb://cello-mongo:27017  # used by pymongo, deprecate soon
-      - MONGO_HOST=mongo
-      - MONGO_DB=dev
-      - MONGODB_PORT=27017
-      - DEBUG=$DEV    # in debug mode, service will auto-restart
-      - LOG_LEVEL=$LOG_LEVEL  # what level log will be output
-    ports:
-      - "80:80"
-    volumes:
-      - ./src:/app
-
-  # cello watchdog service
-  watchdog:
-    image: hyperledger/cello-watchdog
-    container_name: cello-watchdog
-    hostname: cello-watchdog
-    restart: unless-stopped
-    environment:
-      - MONGO_URL=mongodb://mongo:27017  # used by pymongo, deprecate soon
-      - MONGO_HOST=mongo
-      - MONGO_DB=dev
-      - MONGODB_PORT=27017
-      - DEBUG=$DEV    # in debug mode, service will auto-restart
-      - LOG_LEVEL=$LOG_LEVEL  # what level log will be output
-    volumes:  # This should be removed in product env
-      - ./src:/app
 
   # mongo database, may use others in future
   mongo:

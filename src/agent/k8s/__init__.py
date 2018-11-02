@@ -4,7 +4,8 @@
 #
 #  This is for agent that interacts with Kubernetes platform using
 #  cello-k8s-operator, see github.com/hyperledger/cello-k8s-operator.
-import  abc
+import abc
+
 
 def __init__(self):
     pass

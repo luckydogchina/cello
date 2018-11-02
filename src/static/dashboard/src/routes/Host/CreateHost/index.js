@@ -206,7 +206,7 @@ class CreateHost extends PureComponent {
     const { hosts } = host;
     const filterHosts = hosts.filter(hostItem => hostItem.id === hostId);
     const currentHost = filterHosts.length > 0 ? filterHosts[0] : {};
-    const hostTypeValues = ['docker', 'swarm', 'kubernetes', 'vsphere'];
+    const hostTypeValues = ['kubernetes', 'docker', 'swarm',  'vsphere'];
     const k8sCredTypes = [
       {
         id: '1',
@@ -365,8 +365,7 @@ class CreateHost extends PureComponent {
         sm: { span: 10, offset: 7 },
       },
     };
-    const hostTypeValues = ['docker', 'swarm', 'kubernetes', 'vsphere'];
-    //const hostTypeValues = ['kubernetes'];
+    const hostTypeValues = ['kubernetes', 'docker', 'swarm', 'vsphere'];
     const hostTypeOptions = hostTypeValues.map(item => (
       <Option value={item}>
         <span className={styles.upperText}>{item}</span>
@@ -621,7 +620,7 @@ class CreateHost extends PureComponent {
                     ],
                   })(<TextArea rows={4} placeholder={intl.formatMessage(messages.label.sslCa)} />)}
                 </FormItem>
-)}
+                )}
               </div>
             )}
             <FormItem {...formItemLayout} label={intl.formatMessage(messages.label.logLevel)}>

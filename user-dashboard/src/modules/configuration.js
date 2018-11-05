@@ -18,14 +18,25 @@ module.exports = {
     // Log_Server: process.env.Log_Server || "localhost:8090",
     // Log_BaseURL: "/v1/log",
 
-    SV_BaseURL: "http://192.168.1.185:8081/api/",
-    RESTful_Server: "192.168.1.185:8081",
-    RESTful_K8sServer: "192.168.1.185:9906",
+    SV_BaseURL: process.env.SV_BaseURL || "http://localhost:8081/api/",
+    RESTful_Server: process.env.RESTful_Server || "localhost:8081",
+    RESTful_K8sServer: process.env.RESTful_K8sServer || "localhost:9906",
     RESTful_BaseURL: "/api/",
-    PoolManager_Server: "192.168.1.185",
+    PoolManager_Server: process.env.PoolManager_Server || "localhost",
     PoolManager_BaseURL: "/v2/",
-    Log_Server: process.env.Log_Server || "192.168.1.185:8081",
+    Log_Server: process.env.Log_Server || "localhost:8081",
     Log_BaseURL: "/v1/log",
+
+
+
+    // SV_BaseURL: "http://192.168.1.185:8080/api/",
+    // RESTful_Server: "192.168.1.185:8080",
+    // RESTful_K8sServer: "192.168.1.185:9906",
+    // RESTful_BaseURL: "/api/",
+    // PoolManager_Server: "192.168.1.185",
+    // PoolManager_BaseURL: "/v2/",
+    // Log_Server: process.env.Log_Server || "192.168.1.185:8080",
+    // Log_BaseURL: "/v1/log",
 
     // SV_BaseURL: process.env.SV_BaseURL || "https://ptopenlab.com/cloudlab/api/",
     // RESTful_Server: process.env.RESTful_Server || "9.186.91.4:8108",
@@ -37,8 +48,12 @@ module.exports = {
 
 
     mongodb: {
-        ip: "localhost",
-        port: 27017,
+        // ip: (process.env.MONGO_HOST==null)?"localhost":process.env.MONGO_HOST,
+        // port: (process.env.MONGO_PORT==null)?27017:process.env.MONGO_PORT,
+        // ip: "localhost",
+        // port: 27017,
+        ip: (process.env.MONGO_HOST==null)?"localhost":process.env.MONGO_HOST,
+        port: (process.env.MONGO_PORT==null)?27017:process.env.MONGO_PORT,
         name: "bc_dashboard",
         auth: false,
         username: "admin",

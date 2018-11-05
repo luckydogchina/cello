@@ -93,7 +93,7 @@ export const getRouterData = app => {
       ),
     },
     '/update-chain': {
-      component: dynamicWrapper(app, ['host', 'chain'], () =>
+      component: dynamicWrapper(app, ['chain'], () =>
         import('../routes/Chain/UpdateChain')
       ),
     },

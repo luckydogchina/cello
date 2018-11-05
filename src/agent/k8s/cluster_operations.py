@@ -982,11 +982,11 @@ class K8sClusterOperation():
         kind_dict = ['Deployment', 'Service', ]
 
         deployments = []
-        delete_list = []
+        delete_list = ['cli']
 
         for deployment in doc_deployments:
-            if 'cli' in deployment.name:
-                continue
+            # if 'cli' in deployment.name:
+            #     continue
 
             if deployment.kind not in kind_dict:
                 continue
@@ -1008,7 +1008,7 @@ class K8sClusterOperation():
                         " {} ... ...".format(cluster_name))
             pods = self.corev1client.list_namespaced_pod(cluster_name)
             pods_list = [n.metadata.name for n in pods.items]
-            if len(pods_list) == 1:
+            if not len(pods_list):
                 break
             time.sleep(3)
 
@@ -1021,8 +1021,8 @@ class K8sClusterOperation():
         cluster_datas = []
 
         for deployment in doc_deployments:
-            if 'cli' in deployment.name:
-                continue
+            # if 'cli' in deployment.name:
+            #     continue
 
             if deployment.kind in kind_dict:
                 if 'explorer' in deployment.name:

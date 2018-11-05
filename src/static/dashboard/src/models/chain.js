@@ -70,6 +70,11 @@ export default {
         const values = { name: payload.name };
         message.success(intl.formatMessage(messages.operate.success[payload.action], values));
       }
+
+      if (payload.callback){
+        yield call(payload.callback)
+      }
+
     },
     *deleteChain({ payload }, { call, put }) {
       const response = yield call(deleteChain, payload);

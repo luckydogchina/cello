@@ -10,6 +10,7 @@ import sys
 from flask import Blueprint, render_template
 from flask import request as r
 
+from common.response import CODE_UPDATED
 from common.utils import json_decode, \
     CONSENSUS_PLUGIN_SOLO, CONSENSUS_PLUGIN_KAFKA
 
@@ -77,7 +78,7 @@ def cluster_update(r):
     cluster_network.update(network)
     if not cluster_handler.update(cluster_id, host_id, cluster_network):
         return make_fail_resp("cluster start failed")
-    return make_ok_resp()
+    return make_ok_resp(code=CODE_UPDATED)
 
 
 def cluster_restart(r):

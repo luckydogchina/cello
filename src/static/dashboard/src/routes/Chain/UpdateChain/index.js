@@ -19,8 +19,8 @@ const messages = defineMessages({
     defaultMessage: 'Update Host',
   },
   title: {
-    id: 'Chain.Create.Title',
-    defaultMessage: 'Create New Chain',
+    id: 'Chain.Update.Title',
+    defaultMessage: 'Update the Chain',
   },
   subTitle: {
     id: 'Host.Create.SubTitle',
@@ -108,6 +108,11 @@ class UpdateChain extends PureComponent {
     this.setState({
       submitting: false,
     });
+    this.props.dispatch(
+        routerRedux.push({
+          pathname: '/chain',
+        })
+    );
   };
   clickCancel = () => {
     this.props.dispatch(
@@ -134,14 +139,9 @@ class UpdateChain extends PureComponent {
             host_id,
             old_network: networkstr,
             ...values,
-            // callback: this.submitCallback,
+            callback: this.submitCallback,
           },
         });
-        this.props.dispatch(
-          routerRedux.push({
-            pathname: '/chain',
-          })
-        );
       }
     });
   };

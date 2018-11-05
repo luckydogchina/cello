@@ -206,20 +206,22 @@ class Chain extends PureComponent {
     );
     const menu = chainItem => (
       <Menu onClick={this.clickMore}>
-        <Menu.Item key="restart" disabled={chainItem.status === 'stopped'} chain={chainItem}>
+        <Menu.Item key="restart" disabled={chainItem.status !== 'running'} chain={chainItem}>
           <FormattedMessage {...messages.button.restart} />
         </Menu.Item>
-        <Menu.Item disabled={chainItem.status === 'running'} key="start" chain={chainItem}>
+        <Menu.Item disabled={chainItem.status !== 'stopped'} key="start" chain={chainItem}>
           <FormattedMessage {...messages.button.start} />
         </Menu.Item>
-        <Menu.Item key="stop" disabled={chainItem.status === 'stopped'} chain={chainItem}>
+        <Menu.Item key="stop" disabled={chainItem.status !== 'running'} chain={chainItem}>
           <FormattedMessage {...messages.button.stop} />
         </Menu.Item>
         <Menu.Item key="release" chain={chainItem}>
           <FormattedMessage {...messages.button.release} />
         </Menu.Item>
         <Menu.Item key="update" disabled={chainItem.status !== 'running'} chain={chainItem}>
-          <FormattedMessage {...messages.button.update} />
+          <span className={styles['delete-button']}>
+            <FormattedMessage {...messages.button.update} />
+          </span>
         </Menu.Item>
         <Menu.Item key="delete" chain={chainItem}>
           <span className={styles['delete-button']}>

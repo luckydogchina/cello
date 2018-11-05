@@ -297,7 +297,7 @@ class ClusterHandler(object):
         logger.info("Create cluster OK, id={}".format(cid))
 
     def create(self, name, host_id, config, start_port=0,
-               user_id=""):
+               user_id="", async=True):
         """ Create a cluster based on given data
 
         TODO: maybe need other id generation mechanism
@@ -411,6 +411,9 @@ class ClusterHandler(object):
                                                       orderer_ports,
                                                       explorer_ports))
         t.start()
+        if not async:
+            t.join()
+
         return cid
 
     # add one element to one existence cluster
@@ -427,12 +430,12 @@ class ClusterHandler(object):
                 }
             )
             logger.error("update the cluster failure")
-            return False
+            return  # False
         # update cluster containers and service urls info
         if containers is None:
             logger.warning("failed to add element to "
                            "cluster={}".format(cluster.name))
-            return False
+            return  # False
 
         # creation done, update the container table in db
         if len(containers) != 0:
@@ -449,7 +452,7 @@ class ClusterHandler(object):
             service_urls = self.cluster_agents[worker.type] \
                 .get_services_urls(cid)
         else:
-            return False
+            return  # False
 
         # update the service port table in db
         if len(service_urls.items()) != 0:
@@ -486,7 +489,7 @@ class ClusterHandler(object):
                 'version': cluster.version + 1
             }
         )
-        return True
+        # return True
 
     def update(self, cluster_id, host_id, new_network, user_id=""):
         """ add one element to one existence cluster
@@ -530,12 +533,41 @@ class ClusterHandler(object):
                     'status': NETWORK_STATUS_UPDATING,
                 }
             )
-            return self._update_cluster(cluster, cluster_id,
-                                        worker, new_network, user_id)
+            t = Thread(target=self._update_cluster, args=(cluster, cluster_id,
+                                                          worker, new_network,
+                                                          user_id,))
+            t.start()
+            return True
         else:
             return False
 
-    def delete(self, id, record=False, forced=False, delete_config=True):
+    def _delete_cluster(self, host, cluster_id, cluster, user_id,
+                        worker_api, config, delete_config):
+        if host.type == "kubernetes":
+            delete_result = \
+                self.cluster_agents[host.type].delete(cluster_id,
+                                                      worker_api,
+                                                      config,
+                                                      delete_config)
+        else:
+            delete_result = \
+                self.cluster_agents[host.type].delete(cluster_id,
+                                                      worker_api,
+                                                      config)
+        if not delete_result:
+            logger.warning("Error to run compose clean work")
+            cluster.update(set__user_id=user_id, upsert=True)
+            return
+
+        # remove cluster info from host
+        logger.info("remove cluster from host,"
+                    " cluster:{}".format(cluster_id))
+        host.update(pull__clusters=cluster_id)
+
+        cluster.delete()
+
+    def delete(self, id, record=False, forced=False,
+               delete_config=True, async=True):
         """ Delete a cluster instance
 
         Clean containers, remove db entry. Only operate on active host.
@@ -606,24 +638,24 @@ class ClusterHandler(object):
             "env": cluster.env
         })
 
-        if h.type == "kubernetes":
-            delete_result = self.cluster_agents[h.type].delete(id,
-                                                               worker_api,
-                                                               config,
-                                                               delete_config)
-        else:
-            delete_result = self.cluster_agents[h.type].delete(id, worker_api,
-                                                               config)
-        if not delete_result:
-            logger.warning("Error to run compose clean work")
-            cluster.update(set__user_id=user_id, upsert=True)
-            return False
+        self.db_update_one(
+            {"id": id},
+            {
+                "user_id": user_id,
+                'status': 'deleting',
+            }
+        )
 
-        # remove cluster info from host
-        logger.info("remove cluster from host, cluster:{}".format(id))
-        h.update(pull__clusters=id)
-
-        c.delete()
+        t = Thread(target=self._delete_cluster, args=(h,
+                                                      id,
+                                                      cluster,
+                                                      user_id,
+                                                      worker_api,
+                                                      config,
+                                                      delete_config))
+        t.start()
+        if not async:
+            t.join()
         return True
 
     def delete_released(self, id):
@@ -749,7 +781,31 @@ class ClusterHandler(object):
         #         cluster_id))
         #     return False
 
-    def start(self, cluster_id):
+    def _start_cluster(self, host, cluster_id, cluster, config):
+        result = self.cluster_agents[host.type].start(
+            name=cluster_id, worker_api=host.worker_api,
+            mapped_ports=cluster.get('mapped_ports', PEER_SERVICE_PORTS),
+            log_type=host.log_type,
+            log_level=host.log_level,
+            log_server='',
+            config=config,
+        )
+
+        if result:
+            if host.type == WORKER_TYPE_K8S:
+                service_urls = self.cluster_agents[host.type] \
+                    .get_services_urls(cluster_id)
+                self.db_update_one({"id": cluster_id},
+                                   {'status': 'running',
+                                    'api_url': service_urls.get('rest', ""),
+                                    'service_url': service_urls})
+            else:
+                self.db_update_one({"id": cluster_id},
+                                   {'status': 'running'})
+
+            return
+
+    def start(self, cluster_id, async=True):
         """Start a cluster
 
         :param cluster_id: id of cluster to start
@@ -788,30 +844,42 @@ class ClusterHandler(object):
         else:
             return False
 
-        result = self.cluster_agents[h.type].start(
-            name=cluster_id, worker_api=h.worker_api,
-            mapped_ports=c.get('mapped_ports', PEER_SERVICE_PORTS),
-            log_type=h.log_type,
-            log_level=h.log_level,
+        self.db_update_one({"id": cluster_id},
+                           {'status': 'starting'})
+        t = Thread(target=self._start_cluster, args=(h,
+                                                     cluster_id,
+                                                     c,
+                                                     config))
+        t.start()
+        if not async:
+            t.join()
+
+        return True
+
+    def _restart_cluster(self, host, cluster_id, cluster, config):
+        result = self.cluster_agents[host.type].restart(
+            name=cluster_id, worker_api=host.worker_api,
+            mapped_ports=cluster.get('mapped_ports', PEER_SERVICE_PORTS),
+            log_type=host.log_type,
+            log_level=host.log_level,
             log_server='',
             config=config,
         )
 
         if result:
-            if h.type == WORKER_TYPE_K8S:
-                service_urls = self.cluster_agents[h.type]\
-                                   .get_services_urls(cluster_id)
+            if host.type == WORKER_TYPE_K8S:
+                service_urls = self.cluster_agents[host.type] \
+                    .get_services_urls(cluster_id)
                 self.db_update_one({"id": cluster_id},
                                    {'status': 'running',
-                                    'api_url': service_urls.get('rest', ""),
+                                    'api_url': service_urls.get('rest',
+                                                                ""),
                                     'service_url': service_urls})
             else:
                 self.db_update_one({"id": cluster_id},
                                    {'status': 'running'})
 
-            return True
-        else:
-            return False
+        return
 
     def restart(self, cluster_id):
         """Restart a cluster
@@ -852,30 +920,32 @@ class ClusterHandler(object):
         else:
             return False
 
-        result = self.cluster_agents[h.type].restart(
-            name=cluster_id, worker_api=h.worker_api,
-            mapped_ports=c.get('mapped_ports', PEER_SERVICE_PORTS),
-            log_type=h.log_type,
-            log_level=h.log_level,
+        self.db_update_one({"id": cluster_id},
+                           {'status': 'restarting'})
+        t = Thread(target=self._restart_cluster, args=(h,
+                                                       cluster_id,
+                                                       c,
+                                                       config))
+        t.start()
+
+        return True
+
+    def _stop_cluster(self, host, cluster_id, cluster, config):
+        result = self.cluster_agents[host.type].stop(
+            name=cluster_id, worker_api=host.worker_api,
+            mapped_ports=cluster.get('mapped_ports', PEER_SERVICE_PORTS),
+            log_type=host.log_type,
+            log_level=host.log_level,
             log_server='',
             config=config,
         )
-        if result:
-            if h.type == WORKER_TYPE_K8S:
-                service_urls = self.cluster_agents[h.type]\
-                                   .get_services_urls(cluster_id)
-                self.db_update_one({"id": cluster_id},
-                                   {'status': 'running',
-                                    'api_url': service_urls.get('rest', ""),
-                                    'service_url': service_urls})
-            else:
-                self.db_update_one({"id": cluster_id},
-                                   {'status': 'running'})
-            return True
-        else:
-            return False
 
-    def stop(self, cluster_id):
+        if result:
+            self.db_update_one({"id": cluster_id},
+                               {'status': 'stopped', 'health': ''})
+            return 
+
+    def stop(self, cluster_id, async=True):
         """Stop a cluster
 
         :param cluster_id: id of cluster to stop
@@ -913,21 +983,18 @@ class ClusterHandler(object):
         else:
             return False
 
-        result = self.cluster_agents[h.type].stop(
-            name=cluster_id, worker_api=h.worker_api,
-            mapped_ports=c.get('mapped_ports', PEER_SERVICE_PORTS),
-            log_type=h.log_type,
-            log_level=h.log_level,
-            log_server='',
-            config=config,
-        )
+        self.db_update_one({"id": cluster_id},
+                           {'status': 'stopping', 'health': ''})
 
-        if result:
-            self.db_update_one({"id": cluster_id},
-                               {'status': 'stopped', 'health': ''})
-            return True
-        else:
-            return False
+        t = Thread(target=self._stop_cluster, args=(h,
+                                                    cluster_id,
+                                                    c,
+                                                    config))
+        t.start()
+        if not async:
+            t.join()
+
+        return True
 
     def reset(self, cluster_id, record=False):
         """
@@ -950,7 +1017,7 @@ class ClusterHandler(object):
             return False
 
         if not self.delete(cluster_id, record=record,
-                           forced=True, delete_config=False):
+                           forced=True, delete_config=False, async=False):
             logger.warning("Delete cluster failed with id=" + cluster_id)
             return False
         network_type = c.get('network_type')

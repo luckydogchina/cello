@@ -69,6 +69,10 @@ const messages = defineMessages({
         id: "ChannelMgr.form.label.signorgs",
         defaultMessage: "Organization"
       },
+      orgtosign: {
+        id: "ChannelMgr.form.label.orgtosign",
+        defaultMessage: "Organizations"
+      },
       channelName: {
         id: "ChannelMgr.form.label.channelName",
         defaultMessage: "Channel Name"

@@ -235,7 +235,7 @@ var getChannelForName = function(channelName,org) {
     if (channelpeers != null) {
         channelpeers.forEach(function(item,index){
             let arr = item.split(' ')
-            if (arr[2] == channelName) {
+            if ((arr[2] == channelName) && (typeof(ORGS[arr[1]]) != "undefined") && (typeof(ORGS[arr[1]].peers[arr[0]]) != 'undefined')) { //
                 let data = fs.readFileSync('/opt/cello/fabric-1.0/' + ORGS[arr[1]].peers[arr[0]]['tls_cacerts']);
                 let peer = clients[org].newPeer(
                     ORGS[arr[1]].peers[arr[0]].requests,
@@ -459,7 +459,7 @@ var getLogger = function(moduleName) {
   return logger;
 };
 
-var getAdminUser2 = function(userOrg) {
+var getAdminUser2 = function(userOrg, mspid) {
     var mspid = 'Org1MSP'
     var username = "admin";
     var password = "adminpw";
@@ -538,7 +538,7 @@ var generateUsers = function(username, userOrg, caUrl, mspid, istls) {
             caClient = new copService(caUrl, null /*defautl TLS opts*/, '' /* default CA */, cryptoSuite);
             caClients[userOrg] = caClient
         }
-        return getAdminUser2(userOrg).then(function (adminUserObj) {
+        return getAdminUser2(userOrg,mspid).then(function (adminUserObj) {
             member = adminUserObj;
             if (istls)
                 enrollname = username+'-tls'

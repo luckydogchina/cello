@@ -145,6 +145,7 @@ const CreateChannelForm = Form.create()(props => {
     channelCreateResult,
     dispatch,
     chaintype,
+    onChange,
   } = props;
   const {
     orgs
@@ -165,6 +166,7 @@ const CreateChannelForm = Form.create()(props => {
         })
       }
     });
+    onChange([])
   }
 
   const chainOptions = chains.map((chainItem, i) =>
@@ -617,7 +619,7 @@ const UpdateChannelForm = Form.create()(props => {
         )}
       </FormItem>
       <FormItem label={intl.formatMessage(messages.form.label.signorgs)} hasFeedback {...formItemLayout}>
-        {form.getFieldDecorator('orgs', {
+        {form.getFieldDecorator('signorg', {
           initialValue: orgs.length ? orgs[0] : "",
           rules: [
             {
@@ -646,7 +648,7 @@ const UpdateChannelForm = Form.create()(props => {
           </Button>
         </Upload>,
       </FormItem>
-      <FormItem label={intl.formatMessage(messages.form.label.signorgs)} hasFeedback {...formItemLayout}>
+      <FormItem label={intl.formatMessage(messages.form.label.orgtosign)} hasFeedback {...formItemLayout}>
         {form.getFieldDecorator('orgs', {
           rules: [
             {
@@ -798,6 +800,7 @@ class ChannelMgr extends PureComponent {
       channelCreateResult,
       dispatch,
       chaintype:'chain',
+      onChange: this.onChange,
     };
     const subchannelCreatMethods = {
       intl,

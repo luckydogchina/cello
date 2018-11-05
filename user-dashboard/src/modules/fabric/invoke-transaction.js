@@ -95,7 +95,7 @@ var invokeChaincode = function(endorsers,peerName, channelName, chaincodeName, f
 			// 	});
 			// }
 
-			var eventhubs = helper.newEventHubs(peerName, org);
+			var alleventhubs = helper.newEventHubs([peerName], org);
             //var alleventhubs = helper.newPeerAll(eventhubs, false);
 			for (let key in alleventhubs) {
 				let eh = alleventhubs[key];

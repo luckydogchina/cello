@@ -250,7 +250,7 @@ chain.prototype = {
                     user_id: this.apikey,
                     action: "apply",
                     type: applyType,
-                    size: size,
+                    size: 4,
                     name: name
                 },
                 json: true
@@ -674,16 +674,207 @@ chain.prototype = {
     edit: function(id, name) {
         return new Promise(function(resolve, reject) {
           try {
-            const query = {clusterId: id};
-            ChainModel.findOneAndUpdate(query, {name}, {upsert: true}, function (err, doc) {
-              if (err) {
-                logger.error(err)
-                err.status = 503;
-                throw err;
-              } else {
-                resolve({success: true})
-              }
-            })
+            const apikey = this.apikey
+              rp({
+                  method: "POST",
+                  uri: this.RESTfulURL + "cluster_op",
+                  body: {
+                      user_id: this.apikey,
+                      action: "apply",
+                      type: 'fabric',
+                      size: 4,
+                      name: name
+                  },
+                  json: true
+
+                  // method: "GET",
+                  // uri: "http://192.168.1.185:9906/v1_1/fetch/config?cluster=first&type=all",
+                  // body: {
+                  //     service_url:tmstr,
+                  // },
+                  // json: true
+
+              }).then(function(response) {
+
+                  // var bitmap = new Buffer(response, 'base64');
+                  // fs.writeFile('./receivedfile.tar.gz', bitmap, 'binary');
+                  // if (shell.exec(`tar -xvf receivedfile.tar.gz`).code !== 0) {
+                  //     var e = new Error('tar -xvf receivedfile fail');
+                  //     e.status = 503;
+                  //     throw e;
+                  // }
+                  //
+                  // shell.cp('-R', './receivedfile', './');
+
+                  if (response.status === "OK") {
+                      const {data: {service_url, size,id:clusterId}} = response
+
+                      //   let tmstr = "{'peer0_org1_grpc': '192.168.1.163:31026','peer0_org1_event': '192.168.1.163:31028','peer0_org2_grpc': '192.168.1.185:31032','peer0_org2_event': '192.168.1.185:31037','peer1_org1_grpc': '192.168.1.185:31035','peer1_org1_event': '192.168.1.185:31037','peer1_org2_grpc': '192.168.1.185:31037','peer1_org2_event': '192.168.1.185:31037','orderer': '192.168.1.163:31010','ca_org1_ecap': '192.168.1.163:31001','ca_org2_ecap': '192.168.1.185:31002'}"
+                      rp({
+                          method: "GET",
+                          // uri: this.RESTfulK8sURL + "all",
+                          uri: "http://192.168.1.185:9906/v1_1/fetch/config?cluster=first&type=all",
+                          body: {
+                              service_url
+                          },
+                          json: true
+                      }).then(function(response) {
+
+                          var bitmap = new Buffer(response, 'base64');
+                          fs.writeFile('./receivedfile.tar.gz', bitmap, 'binary',function (err) {
+
+                              if (shell.exec('rm -r ./'+name).code !== 0) {
+                              }
+                              if (shell.exec('rm -r ./crypto-config').code !== 0) {
+                              }
+                              if (shell.exec('rm -r /opt/cello/fabric-1.0/crypto-config').code !== 0) {
+                              }
+
+                              if (shell.exec(`tar -xvf receivedfile.tar.gz`).code !== 0) {
+                                  var e = new Error('tar -xvf receivedfile fail');
+                                  e.status = 503;
+                                  throw e;
+                              }
+
+                              if (shell.exec('cp -r ./'+name+'/* ./').code !== 0) {
+                                  var e = new Error('cp receivedfile fail');
+                                  e.status = 503;
+                                  throw e;
+                              }
+                              if (shell.exec('cp -r ./'+name+'/* /opt/cello/fabric-1.0/').code !== 0) {
+                                  var e = new Error('cp receivedfile fail');
+                                  e.status = 503;
+                                  throw e;
+                              }
+
+                              ChainModel.findOne({clusterId: id},  function (err, doc) {
+                                  if (err) {
+                                      logger.error(err)
+                                      err.status = 503;
+                                      throw err;
+                                  }
+
+                                  const chainRootDir = doc.ccSrcPath
+
+                                  const templateFile = `/opt/cello/fabric-1.0/config.json`
+
+                                  let temporgs = [];
+
+                                  try {
+                                      fs.ensureDirSync(chainRootDir);
+                                      jsonfile.readFile(templateFile, function(err, template) {
+
+                                          //template.network.orderer.url = `grpcs://${service_url.orderer}`
+
+                                          let orgindex = 0
+                                          let peerindex = 0
+
+                                          for (let orgkey in template.network.application) {
+
+                                              temporgs.push(orgkey);
+
+                                              const ca_org_ecap = service_url[`ca_org${orgindex+1}_ecap`]
+                                              // template.network.application[orgkey].ca = `https://${ca_org_ecap}`
+
+                                              // peerindex = 0
+                                              for (let peerkey in template.network.application[orgkey].peers){
+                                                  // template.network.application[orgkey].peers[peerkey].requests = "grpcs://"+service_url[`peer${peerindex}_org${orgindex+1}_grpc`]
+                                                  // template.network.application[orgkey].peers[peerkey].events = "grpcs://"+service_url[`peer${peerindex}_org${orgindex+1}_event`]
+                                                  // size ++;
+                                                  // peerindex++
+                                              }
+                                              orgindex++
+                                          }
+
+                                          template.keyValueStore = `${chainRootDir}/client-kvs`
+                                          template.CC_SRC_PATH = chainRootDir
+                                          const txDir = `${chainRootDir}/tx`
+                                          const libDir = `${chainRootDir}/lib`
+                                          fs.ensureDirSync(libDir)
+
+                                          //shell.cp('-R', '/home/lijisai/cello/user-dashboard/src/config-template/cc_code/examples', template.CC_SRC_PATH);
+                                          // shell.cp('-R', `/home/lijisai/cello/user-dashboard/src/modules/${type}/*`, libDir)
+
+                                          fs.ensureDirSync(template.keyValueStore)
+                                          fs.ensureDirSync(txDir)
+
+                                          const configFile = `${chainRootDir}/network-config.json`
+                                          jsonfile.writeFile(configFile, template, function (err) {
+                                              if (err) {
+                                                  logger.error(err)
+                                                  err.status = 503;
+                                                  throw err;
+                                              }
+
+                                              let channelpeerlist = doc.channelpeerlist
+                                              // channelpeerlist = [].concat(doc.channelpeerlist);
+
+                                              for (let i = 0; i < channelpeerlist.length; i++) {
+                                                  let arr = channelpeerlist[i].split(' ')
+                                                  let isexist = false;
+                                                  for (let j=0; j<temporgs.length; j++){
+                                                      if (temporgs[j] == arr[1])
+                                                          isexist = true
+                                                  }
+
+                                                  if (!isexist) {
+                                                      channelpeerlist.splice(i, 1); // 将使后面的元素依次前移，数组长度减1
+                                                      i--; // 如果不减，将漏掉一个元素
+                                                  }
+                                              }
+
+                                              // doc.channelpeerlist.forEach(function(item,index){
+                                              //     let arr = item.split(' ')
+                                              //     let isexist = false;
+                                              //     for (let i=0; i<temporgs.length; i++){
+                                              //         if (temporgs[i] == arr[1])
+                                              //             isexist = true
+                                              //     }
+                                              //     if (!isexist) {
+                                              //         channelpeerlist.splice(index,1)
+                                              //     }
+                                              // });
+
+                                              ChainModel.findOneAndUpdate({clusterId: id}, {template,service_url,size,orgs:temporgs,channelpeerlist}, {upsert: true}, function (err, chaindoc) {
+                                                  if (err) {
+                                                      logger.error(err)
+                                                      err.status = 503;
+                                                      throw err;
+                                                  }
+                                                  resolve({
+                                                      success: true,
+                                                  })
+                                              })
+
+
+                                          })
+                                      })
+                                  } catch (err) {
+                                      logger.error(err)
+                                      resolve({
+                                          success: false,
+                                      });
+                                  }
+
+
+                              })
+
+
+
+                          })
+
+
+                      })
+
+
+
+                  } else {
+                      var e = new Error(response.message);
+                      e.status = 503;
+                      throw e;
+                  }
+              })
+
           } catch (err) {
             reject({
               success: false,

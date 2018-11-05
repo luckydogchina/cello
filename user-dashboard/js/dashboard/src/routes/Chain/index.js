@@ -26,7 +26,8 @@ class Chain extends PureComponent {
   state = {
     loading: true,
     editModalVisible: false,
-    editing: false
+    editing: false,
+    refreshvalue:[],
   }
   componentDidMount() {
     this.props.dispatch({
@@ -80,6 +81,10 @@ class Chain extends PureComponent {
         currentChainId: chainId
       }
     })
+  }
+
+  onChangeForRefresh = (refreshvalue) => {
+    this.setState({ refreshvalue });
   }
 
   render() {
@@ -176,6 +181,7 @@ class Chain extends PureComponent {
             ...data
           }
         })
+        this.onChangeForRefresh([]);
       },
     }
 

@@ -86,7 +86,7 @@ router.post("/:apikey/apply", function(req, res) {
     req.body.name,
     '',
     '',
-    req.body.size,
+    '',//req.body.size,
     req.body.type
   ).then(function (result) {
     res.json(result)
@@ -310,7 +310,7 @@ router.post("/:apikey/updatechannel", function(req, res) {
 
             Promise.all(readpromises).then(() => {
 
-                var aaa = superagent.post('http://127.0.0.1:7059/protolator/encode/common.Config',
+                /*var aaa = superagent.post('http://127.0.0.1:7059/protolator/encode/common.Config',
                     original_config_json.toString())
                     .buffer()
                     .end((err, res) => {
@@ -320,7 +320,7 @@ router.post("/:apikey/updatechannel", function(req, res) {
                         }
                         let config_proto = res.body;
                         //logger.info('config_proto %s',config_proto.toString());
-                    });
+                    });*/
 
                 return superagent.post('http://127.0.0.1:7059/protolator/encode/common.Config',
                     original_config_json.toString())
@@ -328,6 +328,19 @@ router.post("/:apikey/updatechannel", function(req, res) {
 
             }).then((response) => {
                 original_config_proto = response.body;
+
+                /*var aaa = superagent.post('http://127.0.0.1:7059/protolator/encode/common.Config',
+                    updated_config_json.toString())
+                    .buffer()
+                    .end((err, res) => {
+                        if(err) {
+                            logger.error(err);
+                            return;
+                        }
+                        let config_proto = res.body;
+                        //logger.info('config_proto %s',config_proto.toString());
+                    });*/
+
                 return superagent.post('http://127.0.0.1:7059/protolator/encode/common.Config',
                     updated_config_json.toString())
                     .buffer();
@@ -400,7 +413,7 @@ router.post("/:apikey/updatechannel", function(req, res) {
 
                 Promise.all(promises).then(() => {
 
-                    var client = helper.getClientForOrg("org1");
+                    var client = helper.getClientForOrg(signorg);
                     var channel = helper.getChannelForName(channel_name,org);
                     client._userContext = null;
                     helper.getOrgAdmin(signorg).then((user) => {

@@ -15,7 +15,7 @@ const messages = defineMessages({
       button: {
         changeName: {
         	id: "Chain.Index.PageHeader.Content.Button.changeName",
-        	defaultMessage: "Change Name"
+        	defaultMessage: "Chain Update"
         },
         release: {
         	id: "Chain.Index.PageHeader.Content.Button.release",

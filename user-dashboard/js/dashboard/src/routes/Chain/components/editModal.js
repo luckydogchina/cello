@@ -22,6 +22,7 @@ class EditModal extends React.Component {
   constructor (props) {
     super(props)
   }
+
   onOk = (e) => {
     const {form: {validateFields}, onOk} = this.props
     e.preventDefault()

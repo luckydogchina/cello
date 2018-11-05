@@ -31,18 +31,18 @@ const data = [
         path: 'chain/new',
         component: NewChain,
       },
-      {
-        name: 'Sub Chain',
-        messageId: "SubChain",
-        icon: 'copy',
-        path: 'subchain',
-        component: SubChain,
-      },
-      {
-        messageId: 'SubChainNew',
-        path: 'subchain/new',
-        component: NewSubChain,
-      },
+      // {
+      //   name: 'Sub Chain',
+      //   messageId: "SubChain",
+      //   icon: 'copy',
+      //   path: 'subchain',
+      //   component: SubChain,
+      // },
+      // {
+      //   messageId: 'SubChainNew',
+      //   path: 'subchain/new',
+      //   component: NewSubChain,
+      // },
       { // ljs
         name: 'Channel Management',
         messageId: "ChannelMgr",

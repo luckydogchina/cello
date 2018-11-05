@@ -44,7 +44,7 @@ const messages = defineMessages({
     title: {
       updateChain: {
         id: "Chain.Edit.form.title",
-        defaultMessage: "Update chain name"
+        defaultMessage: "Update chain"
       }
     },
     label: {

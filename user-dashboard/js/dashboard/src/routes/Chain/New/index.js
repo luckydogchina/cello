@@ -150,14 +150,14 @@ class NewChain extends PureComponent {
 
     const title = intl.formatMessage(messages.title)
     const config = configs.filter(item => item.type === chainType)
-    const configCards = config.map((item, i) =>
-      <Col span={24}>
-        <Card onClick={() => this.setSelectedConfig(item)} className={cx({configCard: true, selected: item.id === selectedConfigId})} bordered={true}>
-          <h3 className={styles.cardTitle}>{intl.formatMessage(messages.configuration[item.configType].title, {type: item.configName})}</h3>
-          <p className={styles.cardContent}>{intl.formatMessage(messages.configuration[item.configType].content, {type: item.configName})}</p>
-        </Card>
-      </Col>
-    )
+    // const configCards = config.map((item, i) =>
+    //   <Col span={24}>
+    //     <Card onClick={() => this.setSelectedConfig(item)} className={cx({configCard: true, selected: item.id === selectedConfigId})} bordered={true}>
+    //       <h3 className={styles.cardTitle}>{intl.formatMessage(messages.configuration[item.configType].title, {type: item.configName})}</h3>
+    //       <p className={styles.cardContent}>{intl.formatMessage(messages.configuration[item.configType].content, {type: item.configName})}</p>
+    //     </Card>
+    //   </Col>
+    // )
     const token = Cookies.get('CelloToken')
     const props = {
       name: 'file',
@@ -235,13 +235,13 @@ class NewChain extends PureComponent {
                 {/*</Row>*/}
               {/*)}*/}
             {/*</FormItem>*/}
-            <FormItem label={intl.formatMessage(messages.form.label.peersize)} {...formItemLayout}>
-              {getFieldDecorator('size', {
-                initialValue: '4',
-              })(
-                <Input />
-              )}
-            </FormItem>
+            {/*<FormItem label={intl.formatMessage(messages.form.label.peersize)} {...formItemLayout}>*/}
+              {/*{getFieldDecorator('size', {*/}
+                {/*initialValue: '4',*/}
+              {/*})(*/}
+                {/*<Input />*/}
+              {/*)}*/}
+            {/*</FormItem>*/}
 
             {/*<FormItem label={intl.formatMessage(messages.form.label.chainconfig)} {...formItemLayout}>*/}
               {/*<Upload {...props}>*/}

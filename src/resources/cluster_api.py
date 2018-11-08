@@ -327,14 +327,17 @@ def cluster_create():
         return make_fail_resp(error="network config not validated",
                               data=body['network'])
 
+    # TODO: set the orderer org
     if config.consensus_plugin == CONSENSUS_PLUGIN_SOLO:
         orderer_org = Organization("OrdererOrg",
                                    "orderer.example.com",
-                                   ["orderer0"])
+                                   ["orderer0"],
+                                   "orderer0")
     elif config.consensus_plugin == CONSENSUS_PLUGIN_KAFKA:
         orderer_org = Organization("OrdererOrg",
                                    "orderer.example.com",
-                                   ["orderer0", "orderer1", "orderer2"])
+                                   ["orderer0", "orderer1", "orderer2"],
+                                   "orderer0")
     else:
         return make_fail_resp(error="consensus_plugin not supported",
                               data=config.get_data())

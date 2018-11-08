@@ -7,4 +7,5 @@ COPY src /app
 RUN	cd /app/ && \
 	pip install -r requirements.txt && \
 	rm -rf /tmp/cello
+
 WORKDIR /app

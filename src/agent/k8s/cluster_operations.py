@@ -347,9 +347,11 @@ class K8sClusterOperation():
                 results[name + "_ecap"] = template.format(port.node_port)
             return
 
+        # TODO: the external orderer node
         def _orderer(s):
-            for port in s['ports']:
-                results["orderer"] = template.format(port.node_port)
+            if name == 'orderer0':
+                for port in s['ports']:
+                    results["orderer"] = template.format(port.node_port)
             return
 
         def _explore(s):
@@ -830,6 +832,7 @@ class K8sClusterOperation():
         if consensus == CONSENSUS_PLUGIN_KAFKA:
             kafka_params = {
                 "kafka.tpl": {
+                    "nfsServer": nfsServer_ip,
                 }
             }
 
@@ -838,7 +841,8 @@ class K8sClusterOperation():
                                                  False)
 
             yaml_data = yaml.load_all(file_data)
-            self._deploy_k8s_resource(yaml_data, save)
+            if not self._deploy_k8s_resource(yaml_data, save):
+                return False
             time.sleep(3)
 
             for orderer in orderer_org.get("peers", ""):
@@ -950,7 +954,22 @@ class K8sClusterOperation():
             self._delete_k8s_resource(deployment.data)
 
     def delete_cluster(self, cluster_name, docs_deployment, delete_config):
-        self._delete_cluster_resource(docs_deployment)
+
+        if not self.stop_cluster(cluster_name, docs_deployment):
+            return False
+
+        kind_dict = ['Deployment', 'Service', ]
+
+        deployments = []
+        # delete_list = ['cli', 'kafka']
+
+        for deployment in docs_deployment:
+            if deployment.kind in kind_dict:
+                continue
+
+            deployments.append(deployment)
+
+        self._delete_cluster_resource(deployments)
         time.sleep(2)
 
         while not self.check_pvs(docs_deployment):
@@ -982,7 +1001,7 @@ class K8sClusterOperation():
         kind_dict = ['Deployment', 'Service', ]
 
         deployments = []
-        delete_list = ['cli']
+        delete_list = ['cli', 'kafka']
 
         for deployment in doc_deployments:
             # if 'cli' in deployment.name:

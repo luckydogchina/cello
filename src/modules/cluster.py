@@ -586,10 +586,11 @@ class ClusterHandler(object):
             logger.warning("Cannot find cluster {}: {}".format(id, e))
             return False
 
-        c = self.db_update_one({"id": id}, {"status": NETWORK_STATUS_DELETING},
-                               after=False)
+        #  c = self.db_update_one({"id": id}, {"status": NETWORK_STATUS_DELETING},
+        #                        after=False)
+        c = cluster
         # we are safe from occasional applying now
-        user_id = c.user_id  # original user_id
+        user_id = cluster.user_id  # original user_id
         if not forced and user_id != "":
             # not forced, and chain is used by normal user, then no process
             logger.warning("Cannot delete cluster {} by "
@@ -638,13 +639,13 @@ class ClusterHandler(object):
             "env": cluster.env
         })
 
-        self.db_update_one(
-            {"id": id},
-            {
-                "user_id": user_id,
-                'status': 'deleting',
-            }
-        )
+        # self.db_update_one(
+        #     {"id": id},
+        #     {
+        #         "user_id": user_id,
+        #         'status': 'deleting',
+        #     }
+        # )
 
         t = Thread(target=self._delete_cluster, args=(h,
                                                       id,

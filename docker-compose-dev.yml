@@ -39,11 +39,12 @@ services:
 
   # cello dashboard service for network operator
   operator-dashboard:
-    image: hyperledger/cello-operator-dashboard
+    image: handchain/cello-operator-dashboard
     container_name: cello-operator-dashboard
     hostname: cello-operator-dashboard
     restart: unless-stopped
     environment:
+      - CRYPTO_URL=http://crypto_server:9906
       - MONGO_URL=mongodb://cello-mongo:27017  # used by pymongo, deprecate soon
       - MONGO_HOST=mongo
       - MONGO_DB=dev
@@ -54,11 +55,46 @@ services:
       - TEMPLATE_FOLDER=$TEMPLATE_FOLDER
       - ENABLE_EMAIL_ACTIVE=$ENABLE_EMAIL_ACTIVE
     ports:
-      - "8081:8081"
+      - "8080:8080"
     volumes:  # This should be removed in product env
       - ./src/agent/docker/_compose_files:/cello
+      - /var/crypto_url/resources:/resources
       - ./src:/app
 
+  # cello engine service
+  engine:
+    image: handchain/cello-engine
+    container_name: cello-engine
+    hostname: cello-engine
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://cello-mongo:27017  # used by pymongo, deprecate soon
+      - MONGO_HOST=mongo
+      - MONGO_DB=dev
+      - MONGODB_PORT=27017
+      - DEBUG=$DEV    # in debug mode, service will auto-restart
+      - LOG_LEVEL=$LOG_LEVEL  # what level log will be output
+    ports:
+      - "80:80"
+    volumes:
+      - ./src:/app
+
+  # cello watchdog service
+  watchdog:
+    image: handchain/cello-watchdog
+    container_name: cello-watchdog
+    hostname: cello-watchdog
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://mongo:27017  # used by pymongo, deprecate soon
+      - MONGO_HOST=mongo
+      - MONGO_DB=dev
+      - MONGODB_PORT=27017
+      - DEBUG=$DEV    # in debug mode, service will auto-restart
+      - LOG_LEVEL=$LOG_LEVEL  # what level log will be output
+      - PERIOD_TIME=60
+    volumes:  # This should be removed in product env
+      - ./src:/app
 
   # mongo database, may use others in future
   mongo:
@@ -76,8 +112,8 @@ services:
           memory: 256M
     ports:
       #- "27017:27017"  # use follow line instead in production env
-      - "127.0.0.1:27017:27017"
-      - "127.0.0.1:27018:27018"
+      - "0.0.0.0:27017:27017"
+      - "0.0.0.0:27018:27018"
     environment:
       - NO_USED=0
     volumes:
@@ -103,3 +139,13 @@ services:
       - ./src/agent/docker/_compose_files:/cello
     privileged: true
     network_mode: host
+
+  crypto_url:
+    image:  handchain/cello-crypto-server
+    hostname: crypto_server
+    container_name: crypto_server
+    restart: unless-stopped
+    volumes:
+      - /var/crypto_url:/var/crypto_url
+    ports:
+      - 9906:9906

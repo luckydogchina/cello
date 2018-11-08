@@ -16,7 +16,7 @@ spec:
         orderer-id: {{ordererId}}
     spec:
       containers:
-      - name: orderer0-ordererorg
+      - name: {{ordererId}}-{{organizationId}}
         image: hyperledger/fabric-orderer:amd64-1.2.0
         env:
         - name: ORDERER_GENERAL_LOGLEVEL

@@ -1,4 +1,32 @@
 ---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+    name: {{clusterName}}-kafka-pv
+spec:
+    capacity:
+       storage: 500Mi
+    accessModes:
+       - ReadWriteMany
+    claimRef:
+      namespace: {{clusterName}}
+      name: {{clusterName}}-kafka-pvc
+    nfs:
+      path: /{{clusterName}}/
+      server: {{nfsServer}} # change to your nfs server ip here.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    namespace: {{clusterName}}
+    name: {{clusterName}}-kafka-pvc
+spec:
+   accessModes:
+     - ReadWriteMany
+   resources:
+      requests:
+        storage: 10Mi
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -39,8 +67,21 @@ spec:
           value: "36000"
         - name: KAFKA_ADVERTISED_HOST_NAME
           value: "kafka0"
+        - name: KAFKA_LOG_DIRS
+          value: "/var/lib/kafka/data"
+        volumeMounts:
+        - mountPath: /var/lib/kafka/data
+          name: kafka
+          subPath: kafka0/data
+        - mountPath: /opt/kafka/logs
+          name: kafka
+          subPath: kafka0/logs
         ports:
          - containerPort: 9092
+      volumes:
+        - name: kafka
+          persistentVolumeClaim:
+              claimName: {{clusterName}}-kafka-pvc
 
 ---
 apiVersion: extensions/v1beta1
@@ -83,8 +124,21 @@ spec:
           value: "36000"
         - name: KAFKA_ADVERTISED_HOST_NAME
           value: "kafka1"
+        - name: KAFKA_LOG_DIRS
+          value: "/var/lib/kafka/data"
+        volumeMounts:
+        - mountPath: /var/lib/kafka/data
+          name: kafka
+          subPath: kafka1/data
+        - mountPath: /opt/kafka/logs
+          name: kafka
+          subPath: kafka1/logs
         ports:
          - containerPort: 9092
+      volumes:
+        - name: kafka
+          persistentVolumeClaim:
+              claimName: {{clusterName}}-kafka-pvc
 
 ---
 apiVersion: extensions/v1beta1
@@ -127,9 +181,21 @@ spec:
           value: "36000"
         - name: KAFKA_ADVERTISED_HOST_NAME
           value: "kafka2"
+        - name: KAFKA_LOG_DIRS
+          value: "/var/lib/kafka/data"
+        volumeMounts:
+        - mountPath: /var/lib/kafka/data
+          name: kafka
+          subPath: kafka2/data
+        - mountPath: /opt/kafka/logs
+          name: kafka
+          subPath: kafka2/logs
         ports:
          - containerPort: 9092
-
+      volumes:
+        - name: kafka
+          persistentVolumeClaim:
+              claimName: {{clusterName}}-kafka-pvc
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -151,14 +217,27 @@ spec:
       - name: zookeeper0
         image: hyperledger/fabric-zookeeper:amd64-0.4.10
         env:
-        - name: ZOO_MY_ID
-          value: "1"
-        - name: ZOO_SERVERS
-          value: "server.1=0.0.0.0:2888:3888 server.2=zookeeper1:2888:3888 server.3=zookeeper2:2888:3888"
+         - name: ZOO_MY_ID
+           value: "1"
+         - name: ZOO_SERVERS
+           value: "server.1=0.0.0.0:2888:3888 server.2=zookeeper1:2888:3888 server.3=zookeeper2:2888:3888"
+         - name: ZOO_TICK_TIME
+           value: "6000"
         ports:
          - containerPort: 2181
          - containerPort: 2888
          - containerPort: 3888
+        volumeMounts:
+        - mountPath: /datalog
+          name: kafka
+          subPath: zookeeper0/datalog
+        - mountPath: /data
+          name: kafka
+          subPath: zookeeper0/data
+      volumes:
+        - name: kafka
+          persistentVolumeClaim:
+              claimName: {{clusterName}}-kafka-pvc
 
 ---
 apiVersion: extensions/v1beta1
@@ -181,14 +260,27 @@ spec:
       - name: zookeeper1
         image: hyperledger/fabric-zookeeper:amd64-0.4.10
         env:
-        - name: ZOO_MY_ID
-          value: "2"
-        - name: ZOO_SERVERS
-          value: "server.1=zookeeper0:2888:3888 server.2=0.0.0.0:2888:3888 server.3=zookeeper2:2888:3888"
+         - name: ZOO_MY_ID
+           value: "2"
+         - name: ZOO_SERVERS
+           value: "server.1=zookeeper0:2888:3888 server.2=0.0.0.0:2888:3888 server.3=zookeeper2:2888:3888"
+         - name: ZOO_TICK_TIME
+           value: "6000"
         ports:
          - containerPort: 2181
          - containerPort: 2888
          - containerPort: 3888
+        volumeMounts:
+        - mountPath: /datalog
+          name: kafka
+          subPath: zookeeper1/datalog
+        - mountPath: /data
+          name: kafka
+          subPath: zookeeper1/data
+      volumes:
+        - name: kafka
+          persistentVolumeClaim:
+              claimName: {{clusterName}}-kafka-pvc
 
 ---
 apiVersion: extensions/v1beta1
@@ -211,14 +303,27 @@ spec:
       - name: zookeeper2
         image: hyperledger/fabric-zookeeper:amd64-0.4.10
         env:
-        - name: ZOO_MY_ID
-          value: "3"
-        - name: ZOO_SERVERS
-          value: "server.1=zookeeper0:2888:3888 server.2=zookeeper1:2888:3888 server.3=0.0.0.0:2888:3888"
+         - name: ZOO_MY_ID
+           value: "3"
+         - name: ZOO_SERVERS
+           value: "server.1=zookeeper0:2888:3888 server.2=zookeeper1:2888:3888 server.3=0.0.0.0:2888:3888"
+         - name: ZOO_TICK_TIME
+           value: "6000"
         ports:
          - containerPort: 2181
          - containerPort: 2888
          - containerPort: 3888
+        volumeMounts:
+        - mountPath: /datalog
+          name: kafka
+          subPath: zookeeper2/datalog
+        - mountPath: /data
+          name: kafka
+          subPath: zookeeper2/data
+      volumes:
+        - name: kafka
+          persistentVolumeClaim:
+              claimName: {{clusterName}}-kafka-pvc
 
 ---
 apiVersion: v1

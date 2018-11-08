@@ -4,6 +4,8 @@
 #
 FROM _NS_/cello-baseimage:_TAG_
 
+COPY src /app
+
 # use this in development
 CMD ["python", "restserver.py"]
 

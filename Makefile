@@ -33,10 +33,10 @@ ARCH   := $(shell uname -m)
 PREV_VERSION?=0.8.0
 
 # Building image usage
-DOCKER_NS ?= hyperledger
+DOCKER_NS ?= handchain
 BASENAME ?= $(DOCKER_NS)/cello
-VERSION ?= 0.9.0
-IS_RELEASE=false
+VERSION ?= 1.0.0
+IS_RELEASE=true
 
 DOCKER_BASE_x86_64=ubuntu:xenial
 DOCKER_BASE_ppc64le=ppc64le/ubuntu:xenial
@@ -114,13 +114,13 @@ endif
 all: check
 
 build/docker/baseimage/$(DUMMY): build/docker/baseimage/$(DUMMY)
-build/docker/nginx/$(DUMMY): build/docker/nginx/$(DUMMY)
-build/docker/mongo/$(DUMMY): build/docker/mongo/$(DUMMY)
+# build/docker/nginx/$(DUMMY): build/docker/nginx/$(DUMMY)
+# build/docker/mongo/$(DUMMY): build/docker/mongo/$(DUMMY)
 build/docker/engine/$(DUMMY): build/docker/engine/$(DUMMY)
 build/docker/operator-dashboard/$(DUMMY): build/docker/operator-dashboard/$(DUMMY)
-build/docker/ansible-agent/$(DUMMY): build/docker/ansible-agent/$(DUMMY)
+# build/docker/ansible-agent/$(DUMMY): build/docker/ansible-agent/$(DUMMY)
 build/docker/watchdog/$(DUMMY): build/docker/watchdog/$(DUMMY)
-build/docker/user-dashboard/$(DUMMY): build/docker/user-dashboard/$(DUMMY)
+# build/docker/user-dashboard/$(DUMMY): build/docker/user-dashboard/$(DUMMY)
 
 build/docker/%/$(DUMMY): ##@Build an image locally
 	$(eval TARGET = ${patsubst build/docker/%/$(DUMMY),%,${@}})
@@ -146,11 +146,17 @@ build/docker/%/.push: build/docker/%/$(DUMMY)
 
 docker: $(patsubst %,build/docker/%/$(DUMMY),$(DOCKER_IMAGES)) ##@Generate docker images locally
 
+docker-baseimage: build/docker/baseimage/$(DUMMY)
+
 docker-operator-dashboard: build/docker/operator-dashboard/$(DUMMY)
 
 docker-user-dashboard: build/docker/user-dashboard/$(DUMMY)
 
 docker-clean: stop image-clean ##@Clean all existing images
+
+docker-engine: build/docker/engine/$(DUMMY)
+
+docker-watchdog: build/docker/watchdog/$(DUMMY)
 
 DOCKERHUB_IMAGES = baseimage engine operator-dashboard user-dashboard watchdog ansible-agent fabric-initial
 

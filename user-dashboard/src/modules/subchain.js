@@ -353,7 +353,7 @@ subchain.prototype = {
         return new Promise(function(resolve, reject){
             try {
                 const channelName = channelname;
-                const channelConfigPath = ".";
+                const channelConfigPath = "/opt/cello/fabric-1.0";
                 fs.ensureDirSync(channelConfigPath)
                 if (shell.exec(`configtxgen -profile TwoOrgsChannel -channelID ${channelName} -outputCreateChannelTx ${channelConfigPath}/${channelName}.tx`).code !== 0) {
                     var e = new Error('generate channel tx file fail');

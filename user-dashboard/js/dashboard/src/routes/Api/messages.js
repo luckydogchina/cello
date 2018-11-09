@@ -39,7 +39,7 @@ const messages = defineMessages({
         defaultMessage: "Method"
       },
       chain:{
-        id: "ChannelMgr.form.label.signorgs",
+        id: "ChannelMgr.form.label.chain",
         defaultMessage: "Organization"
       },
       signorg:{

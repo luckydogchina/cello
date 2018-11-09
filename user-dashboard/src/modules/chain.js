@@ -45,7 +45,7 @@ chain.prototype = {
     RESTfulURL: "http://" + configuration.RESTful_Server + configuration.RESTful_BaseURL,
     PoolManagerURL: "http://" + configuration.PoolManager_Server + configuration.PoolManager_BaseURL,
     LogURL: "http://" + configuration.Log_Server + configuration.Log_BaseURL,
-    RESTfulK8sURL: "http://" + configuration.RESTful_K8sServer + "/v1_1/fetch/config?cluster=first&type=",
+    RESTfulK8sURL: "http://" + configuration.RESTful_K8sServer,
     amount: function() {
         return new Promise(function(resolve, reject) {
             rp({
@@ -277,11 +277,10 @@ chain.prototype = {
                 if (response.status === "OK") {
                     const {data: {service_url, size,id:clusterId}} = response
 
-                 //   let tmstr = "{'peer0_org1_grpc': '192.168.1.163:31026','peer0_org1_event': '192.168.1.163:31028','peer0_org2_grpc': '192.168.1.185:31032','peer0_org2_event': '192.168.1.185:31037','peer1_org1_grpc': '192.168.1.185:31035','peer1_org1_event': '192.168.1.185:31037','peer1_org2_grpc': '192.168.1.185:31037','peer1_org2_event': '192.168.1.185:31037','orderer': '192.168.1.163:31010','ca_org1_ecap': '192.168.1.163:31001','ca_org2_ecap': '192.168.1.185:31002'}"
                     rp({
                         method: "GET",
-                       // uri: this.RESTfulK8sURL + "all",
-                        uri: "http://192.168.1.185:9906/v1_1/fetch/config?cluster=first&type=all",
+                        uri: "http://" + configuration.RESTful_K8sServer + "/v1_1/fetch/config?cluster="+name+"&type=" + "all",
+                        //uri: "http://192.168.1.185:9906/v1_1/fetch/config?cluster=first&type=all",
                         body: {
                             service_url
                         },
@@ -289,31 +288,54 @@ chain.prototype = {
                     }).then(function(response) {
 
                         var bitmap = new Buffer(response, 'base64');
-                        fs.writeFile('./receivedfile.tar.gz', bitmap, 'binary',function (err) {
+                        fs.ensureDirSync('/opt/cello/fabric-1.0');
+                        fs.writeFile('/opt/cello/fabric-1.0/receivedfile.tar.gz', bitmap, 'binary',function (err) {
 
-                            if (shell.exec('rm -r ./'+name).code !== 0) {
-                            }
-                            if (shell.exec('rm -r ./crypto-config').code !== 0) {
-                            }
-                            if (shell.exec('rm -r /opt/cello/fabric-1.0/crypto-config').code !== 0) {
+                            if (err) {
+                                logger.error(err)
+                                err.status = 503;
+                                throw err;
                             }
 
-                            if (shell.exec(`tar -xvf receivedfile.tar.gz`).code !== 0) {
+                            logger.info("write file success      xxxxxxxxxxxxxx");
+
+                            if (shell.exec('rm -rf /opt/cello/fabric-1.0/'+name).code !== 0) {
+                            }
+
+                            logger.info("rm name dir success      xxxxxxxxxxxxxx");
+
+                            if (shell.exec('rm -rf /opt/cello/fabric-1.0/crypto-config').code !== 0) {
+                            }
+
+                            logger.info("rm crypto-config dir success      xxxxxxxxxxxxxx");
+
+                            // fs.ensureDirSync('/opt/cello/fabric-1.0');
+                            // if (shell.exec('rm -r /opt/cello/fabric-1.0/crypto-config').code !== 0) {
+                            // }
+                            //
+                            // logger.info("rm /opt/cello/fabric-1.0/crypto-config dir success      xxxxxxxxxxxxxx");
+
+                            if (shell.exec(`tar -xvf /opt/cello/fabric-1.0/receivedfile.tar.gz -C /opt/cello/fabric-1.0/`).code !== 0) {
                                 var e = new Error('tar -xvf receivedfile fail');
                                 e.status = 503;
                                 throw e;
                             }
+                            logger.info("tar -xvf receivedfile.tar.gz success      xxxxxxxxxxxxxx");
 
-                            if (shell.exec('cp -r ./'+name+'/* ./').code !== 0) {
+                            // if (shell.exec('cp -r ./'+name+'/* ./').code !== 0) {
+                            //     var e = new Error('cp receivedfile fail');
+                            //     e.status = 503;
+                            //     throw e;
+                            // }
+                            // logger.info("cp to ./ success      xxxxxxxxxxxxxx");
+
+
+                            if (shell.exec('cp -r /opt/cello/fabric-1.0/'+name+'/* /opt/cello/fabric-1.0/').code !== 0) {
                                 var e = new Error('cp receivedfile fail');
                                 e.status = 503;
                                 throw e;
                             }
-                            if (shell.exec('cp -r ./'+name+'/* /opt/cello/fabric-1.0/').code !== 0) {
-                                var e = new Error('cp receivedfile fail');
-                                e.status = 503;
-                                throw e;
-                            }
+                            logger.info("cp to /opt/cello/fabric-1.0/ success      xxxxxxxxxxxxxx");
 
                             const chainId = mongoose.Types.ObjectId();
                             const chainRootDir = util.format(config.path.chain, username, chainId)
@@ -431,9 +453,9 @@ chain.prototype = {
         return new Promise(function(resolve){
             try {
                 const channelName = channelname;
-                const channelConfigPath = ".";
+                const channelConfigPath = "/opt/cello/fabric-1.0";
                 fs.ensureDirSync(channelConfigPath)
-                if (shell.exec(`./configtxgen -profile TwoOrgsChannel --configPath=./ -channelID ${channelName} -outputCreateChannelTx ${channelConfigPath}/${channelName}.tx`).code !== 0) {
+                if (shell.exec(`./configtxgen -profile TwoOrgsChannel --configPath=/opt/cello/fabric-1.0/ -channelID ${channelName} -outputCreateChannelTx ${channelConfigPath}/${channelName}.tx`).code !== 0) {
                     var e = new Error('generate channel tx file fail');
                     e.status = 503;
                     throw e;
@@ -446,12 +468,12 @@ chain.prototype = {
                         err.status = 503;
                         throw err;
                     }
-                    fs.writeFile('./copychannel.tx', data, 'binary');
-
+                    // fs.writeFile('./copychannel.tx', data, 'binary');
+                    //
                     var b = new Buffer(data).toString('base64');
-
-                    var bitmap = new Buffer(b, 'base64');
-                    fs.writeFile('./copy2222channel.tx', bitmap, 'binary');
+                    //
+                    // var bitmap = new Buffer(b, 'base64');
+                    // fs.writeFile('./copy2222channel.tx', bitmap, 'binary');
 
                     resolve({
                         success: true,
@@ -487,7 +509,7 @@ chain.prototype = {
                         const channelConfigPath = `${chainRootDir}/tx`
 
                         fs.ensureDirSync(channelConfigPath)
-                        shell.cp('-R', `./${channelName}.tx`, channelConfigPath);
+                        shell.cp('-R', `/opt/cello/fabric-1.0/${channelName}.tx`, channelConfigPath);
 
                         // const helper = require(`/opt/cello/fabric-1.0/lib/helper.js`)
                         // helper.initialize(doc.template)
@@ -541,7 +563,7 @@ chain.prototype = {
                         const channelConfigPath = `${chainRootDir}/tx`
 
                         fs.ensureDirSync(channelConfigPath)
-                        shell.cp('-R', `./${channelName}.tx`, channelConfigPath);
+                        shell.cp('-R', `/opt/cello/fabric-1.0/${channelName}.tx`, channelConfigPath);
 
                         const helper = require(`/opt/cello/fabric-1.0/lib/helper.js`)
                         helper.initializeWithChannel(doc.template,channelName, doc.channelpeerlist)
@@ -712,8 +734,8 @@ chain.prototype = {
                       //   let tmstr = "{'peer0_org1_grpc': '192.168.1.163:31026','peer0_org1_event': '192.168.1.163:31028','peer0_org2_grpc': '192.168.1.185:31032','peer0_org2_event': '192.168.1.185:31037','peer1_org1_grpc': '192.168.1.185:31035','peer1_org1_event': '192.168.1.185:31037','peer1_org2_grpc': '192.168.1.185:31037','peer1_org2_event': '192.168.1.185:31037','orderer': '192.168.1.163:31010','ca_org1_ecap': '192.168.1.163:31001','ca_org2_ecap': '192.168.1.185:31002'}"
                       rp({
                           method: "GET",
-                          // uri: this.RESTfulK8sURL + "all",
-                          uri: "http://192.168.1.185:9906/v1_1/fetch/config?cluster=first&type=all",
+                          uri: "http://" + configuration.RESTful_K8sServer + "/v1_1/fetch/config?cluster="+name+"&type=" + "all",
+                          //uri: "http://192.168.1.185:9906/v1_1/fetch/config?cluster=first&type=all",
                           body: {
                               service_url
                           },
@@ -721,31 +743,27 @@ chain.prototype = {
                       }).then(function(response) {
 
                           var bitmap = new Buffer(response, 'base64');
-                          fs.writeFile('./receivedfile.tar.gz', bitmap, 'binary',function (err) {
+                          fs.writeFile('/opt/cello/fabric-1.0/receivedfile.tar.gz', bitmap, 'binary',function (err) {
 
-                              if (shell.exec('rm -r ./'+name).code !== 0) {
+                              if (err) {
+                                  logger.error(err)
+                                  err.status = 503;
+                                  throw err;
                               }
-                              if (shell.exec('rm -r ./crypto-config').code !== 0) {
-                              }
+
                               if (shell.exec('rm -r /opt/cello/fabric-1.0/crypto-config').code !== 0) {
                               }
-
-                              if (shell.exec(`tar -xvf receivedfile.tar.gz`).code !== 0) {
+                              if (shell.exec(`tar -xvf /opt/cello/fabric-1.0/receivedfile.tar.gz -C /opt/cello/fabric-1.0/`).code !== 0) {
                                   var e = new Error('tar -xvf receivedfile fail');
                                   e.status = 503;
                                   throw e;
                               }
+                              if (shell.exec('cp -r /opt/cello/fabric-1.0/'+name+'/* /opt/cello/fabric-1.0/').code !== 0) {
+                                  var e = new Error('cp receivedfile fail');
+                                  e.status = 503;
+                                  throw e;
+                              }
 
-                              if (shell.exec('cp -r ./'+name+'/* ./').code !== 0) {
-                                  var e = new Error('cp receivedfile fail');
-                                  e.status = 503;
-                                  throw e;
-                              }
-                              if (shell.exec('cp -r ./'+name+'/* /opt/cello/fabric-1.0/').code !== 0) {
-                                  var e = new Error('cp receivedfile fail');
-                                  e.status = 503;
-                                  throw e;
-                              }
 
                               ChainModel.findOne({clusterId: id},  function (err, doc) {
                                   if (err) {

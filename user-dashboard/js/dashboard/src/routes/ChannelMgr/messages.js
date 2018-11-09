@@ -64,7 +64,7 @@ const messages = defineMessages({
         defaultMessage: "Channel Name"
       },
       launchpeer: {
-        id: "API.form.label.eventhubs",
+        id: "ChannelMgr.form.label.launchpeer",
         defaultMessage: "Launch Peer"
       },
       configtxlatorurl: {

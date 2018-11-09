@@ -116,7 +116,7 @@ const UpdateChannelForm = Form.create()(props => {
             value={value}
             dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
             treeData={treeData}
-            placeholder="Select eventhubs"
+            placeholder="Select launchpeer"
             treeDefaultExpandAll
             onChange={onChange}
           />

@@ -1438,7 +1438,7 @@ class K8sClusterOperation():
             self._update_new(original_config, cluster_config)
 
         # 先生成配置文件并复制
-        if len(new_list):
+        if len(new_list) + len(delete_list):
             respond = crypto_client.update_fabric_network(ClusterEnvelop(
                 cluster_id=cluster_name,
                 net_work=cluster_config))

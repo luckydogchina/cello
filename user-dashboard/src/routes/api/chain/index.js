@@ -20,6 +20,7 @@ var superagent = require('superagent');
 var agent = require('superagent-promise')(require('superagent'), Promise);
 const fs = require('fs-extra');
 var requester = require('request');
+const shell = require('shelljs');
 logger.setLevel(logLevel);
 
 const router = new Router()
@@ -187,6 +188,30 @@ router.post("/:apikey/downloadchannelconfigfile", function (req, res) {
             helper.getChannelConfig(signorg, channelName).then(function(config_envelope) {
                 var original_config_proto = config_envelope.config.toBuffer();
 
+                // fs.ensureDirSync('/opt/cello/fabric-1.0');
+                // fs.writeFile('/opt/cello/fabric-1.0/config_block.pb', original_config_proto, 'binary',function (err) {
+                //
+                //     if (err) {
+                //         res.json({
+                //             success: false,
+                //             error: "write config pb file fail!"
+                //         })
+                //         return
+                //     }
+                //
+                //     if (shell.exec('configtxlator proto_decode --input /opt/cello/fabric-1.0/config_block.pb --type common.Block  --output /opt/cello/fabric-1.0/original_config.json').code !== 0) {
+                //         res.json({
+                //             success: false,
+                //             error: "translate config to json fail!"
+                //         })
+                //         return
+                //     }
+                //
+                // })
+
+
+
+
                 var response = superagent.post('http://127.0.0.1:7059/protolator/decode/common.Config',
                     original_config_proto)
                     .buffer()
@@ -202,6 +227,8 @@ router.post("/:apikey/downloadchannelconfigfile", function (req, res) {
                         })
                         return
                     });
+
+
             });
         }
     })
@@ -210,7 +237,7 @@ router.post("/:apikey/downloadchannelconfigfile", function (req, res) {
 
 router.post("/uploadoriginalconfigjson", function (req, res) {
 
-    const configDir = "."
+    const configDir = "/opt/cello/fabric-1.0"
     //const configDir = config.path.fabricConfig
     const storage = multer.diskStorage({
         destination: function(req, file, callback) {
@@ -233,7 +260,7 @@ router.post("/uploadoriginalconfigjson", function (req, res) {
 
 router.post("/uploadupdatedconfigjson", function (req, res) {
 
-    const configDir = "."
+    const configDir = "/opt/cello/fabric-1.0"
     //const configDir = config.path.fabricConfig
     const storage = multer.diskStorage({
         destination: function(req, file, callback) {
@@ -276,7 +303,7 @@ router.post("/:apikey/updatechannel", function(req, res) {
         } else {
             let readpromises = []
             let p1 = new Promise((resolve, reject) => {
-                fs.readFile("updatedconfig.json", function (err, data) {
+                fs.readFile("/opt/cello/fabric-1.0/updatedconfig.json", function (err, data) {
                     if (err) {
                         res.json({
                             success: false,
@@ -291,7 +318,7 @@ router.post("/:apikey/updatechannel", function(req, res) {
                 })
             })
             let p2 = new Promise((resolve, reject) => {
-                fs.readFile("originalconfig.json", function (err, data) {
+                fs.readFile("/opt/cello/fabric-1.0/originalconfig.json", function (err, data) {
                     if (err) {
                         res.json({
                             success: false,
@@ -480,7 +507,7 @@ router.post("/:apikey/:id/edit", function(req, res) {
 
 router.post("/uploadchannelconfig", function (req, res) {
 
-    const configDir = "."
+    const configDir = "/opt/cello/fabric-1.0"
     //const configDir = config.path.fabricConfig
     const storage = multer.diskStorage({
         destination: function(req, file, callback) {
@@ -504,7 +531,7 @@ router.post("/uploadchannelconfig", function (req, res) {
 
 router.post("/uploadchanneltx", function (req, res) {
 
-    const configDir = "."
+    const configDir = "/opt/cello/fabric-1.0"
     //const configDir = config.path.fabricConfig
     const storage = multer.diskStorage({
         destination: function(req, file, callback) {
